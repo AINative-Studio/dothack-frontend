@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { StoreProvider } from '@/lib/store';
 import { QueryProvider } from '@/lib/query-provider';
+import { AuthProvider } from '@/lib/auth/auth-context';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorToastSetup } from '@/components/error-toast-setup';
 
@@ -37,11 +38,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <QueryProvider>
-          <StoreProvider>
-            {children}
-            <Toaster />
-            <ErrorToastSetup />
-          </StoreProvider>
+          <AuthProvider>
+            <StoreProvider>
+              {children}
+              <Toaster />
+              <ErrorToastSetup />
+            </StoreProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>
