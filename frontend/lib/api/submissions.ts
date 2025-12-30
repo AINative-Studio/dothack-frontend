@@ -91,3 +91,47 @@ export function parseArtifactLinks(submission: Submission): ArtifactLink[] {
     return []
   }
 }
+
+export interface SubmissionEmbeddingMetadata {
+  hackathon_id: string
+  track_id?: string
+  team_id: string
+  project_id: string
+  submitted_at: string
+}
+
+export async function createSubmissionWithEmbedding(
+  input: CreateSubmissionInput,
+  metadata: SubmissionEmbeddingMetadata
+): Promise<SubmissionWithMetadata> {
+  const submission = await createSubmission(input)
+
+  const namespace = submission.namespace
+
+  try {
+    const embeddingResponse = await zeroDBClient.embedAndStore({
+      documents: [{
+        id: `submission:${submission.submission_id}`,
+        text: submission.submission_text,
+        metadata: {
+          hackathon_id: metadata.hackathon_id,
+          track_id: metadata.track_id,
+          team_id: metadata.team_id,
+          project_id: metadata.project_id,
+          submitted_at: metadata.submitted_at
+        }
+      }],
+      namespace
+    })
+
+    if (!embeddingResponse.success) {
+      console.error('Embedding storage failed:', embeddingResponse.error)
+      throw new Error(`Submission created but embedding failed: ${embeddingResponse.error}`)
+    }
+
+    return submission
+  } catch (error) {
+    console.error('Failed to store embedding:', error)
+    throw error
+  }
+}

@@ -2,18 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Submission } from '../lib/types'
 import {
   createSubmission,
+  createSubmissionWithEmbedding,
   listSubmissions,
   getSubmissionsByHackathon,
   getSubmissionByProject,
   parseArtifactLinks,
   type CreateSubmissionInput,
   type ListSubmissionsParams,
-  type ArtifactLink
+  type ArtifactLink,
+  type SubmissionEmbeddingMetadata
 } from '../lib/api/submissions'
 
 export const SUBMISSIONS_QUERY_KEY = 'submissions'
 
-export { parseArtifactLinks, type ArtifactLink }
+export { parseArtifactLinks, type ArtifactLink, type SubmissionEmbeddingMetadata }
 
 export function useSubmissions(params: ListSubmissionsParams = {}) {
   return useQuery({
@@ -43,6 +45,23 @@ export function useCreateSubmission() {
 
   return useMutation({
     mutationFn: (input: CreateSubmissionInput) => createSubmission(input),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [SUBMISSIONS_QUERY_KEY] })
+      queryClient.invalidateQueries({
+        queryKey: [SUBMISSIONS_QUERY_KEY, { project_id: data.project_id }]
+      })
+    }
+  })
+}
+
+export function useCreateSubmissionWithEmbedding() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: {
+      submission: CreateSubmissionInput
+      metadata: SubmissionEmbeddingMetadata
+    }) => createSubmissionWithEmbedding(input.submission, input.metadata),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [SUBMISSIONS_QUERY_KEY] })
       queryClient.invalidateQueries({
