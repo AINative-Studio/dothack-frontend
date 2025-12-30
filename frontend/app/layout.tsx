@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { StoreProvider } from '@/lib/store';
 import { QueryProvider } from '@/lib/query-provider';
+import { Toaster } from '@/components/ui/toaster';
+import { ErrorToastSetup } from '@/components/error-toast-setup';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -35,7 +37,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <QueryProvider>
-          <StoreProvider>{children}</StoreProvider>
+          <StoreProvider>
+            {children}
+            <Toaster />
+            <ErrorToastSetup />
+          </StoreProvider>
         </QueryProvider>
       </body>
     </html>
