@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "setup-db": "tsx scripts/setup-db.ts"
+    "setup-db": "tsx scripts/setup-db.ts",
+    "verify-zerodb": "tsx scripts/verify-zerodb.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
