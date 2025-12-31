@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Project } from '../lib/types'
 import {
   createProject,
@@ -11,6 +11,13 @@ import {
   type UpdateProjectInput,
   type ListProjectsParams
 } from '../lib/api/projects'
+import {
+  getNextPageParam,
+  flattenPages,
+  createPaginationParams,
+  DEFAULT_PAGE_SIZE,
+  type PageSize
+} from '../lib/pagination'
 
 export const PROJECTS_QUERY_KEY = 'projects'
 
@@ -45,6 +52,27 @@ export function useProjectsByStatus(
     queryKey: [PROJECTS_QUERY_KEY, { hackathon_id: hackathonId, status }],
     queryFn: () => getProjectsByStatus(hackathonId, status),
     enabled: !!hackathonId
+  })
+}
+
+export function useInfiniteProjectsByHackathon(
+  hackathonId: string,
+  pageSize: PageSize = DEFAULT_PAGE_SIZE
+) {
+  return useInfiniteQuery({
+    queryKey: [PROJECTS_QUERY_KEY, 'infinite', { hackathon_id: hackathonId, pageSize }],
+    queryFn: ({ pageParam = 0 }) =>
+      listProjects({
+        hackathon_id: hackathonId,
+        ...createPaginationParams(pageSize, pageParam)
+      }),
+    getNextPageParam: (lastPage, allPages) => getNextPageParam(lastPage, allPages, pageSize),
+    enabled: !!hackathonId,
+    select: (data) => ({
+      pages: data.pages,
+      pageParams: data.pageParams,
+      items: flattenPages(data.pages)
+    })
   })
 }
 

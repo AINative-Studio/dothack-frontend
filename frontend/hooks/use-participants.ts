@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Participant, HackathonParticipant } from '../lib/types'
 import {
   createParticipant,
@@ -13,6 +13,13 @@ import {
   type ListParticipantsParams,
   type ListHackathonParticipantsParams
 } from '../lib/api/participants'
+import {
+  getNextPageParam,
+  flattenPages,
+  createPaginationParams,
+  DEFAULT_PAGE_SIZE,
+  type PageSize
+} from '../lib/pagination'
 
 export const PARTICIPANTS_QUERY_KEY = 'participants'
 export const HACKATHON_PARTICIPANTS_QUERY_KEY = 'hackathon_participants'
@@ -47,6 +54,27 @@ export function useParticipantsByRole(
     queryKey: [HACKATHON_PARTICIPANTS_QUERY_KEY, { hackathon_id: hackathonId, role }],
     queryFn: () => getParticipantsByRole(hackathonId, role),
     enabled: !!hackathonId
+  })
+}
+
+export function useInfiniteParticipantsByHackathon(
+  hackathonId: string,
+  pageSize: PageSize = DEFAULT_PAGE_SIZE
+) {
+  return useInfiniteQuery({
+    queryKey: [HACKATHON_PARTICIPANTS_QUERY_KEY, 'infinite', { hackathon_id: hackathonId, pageSize }],
+    queryFn: ({ pageParam = 0 }) =>
+      listHackathonParticipants({
+        hackathon_id: hackathonId,
+        ...createPaginationParams(pageSize, pageParam)
+      }),
+    getNextPageParam: (lastPage, allPages) => getNextPageParam(lastPage, allPages, pageSize),
+    enabled: !!hackathonId,
+    select: (data) => ({
+      pages: data.pages,
+      pageParams: data.pageParams,
+      items: flattenPages(data.pages)
+    })
   })
 }
 

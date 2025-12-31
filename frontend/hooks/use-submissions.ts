@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import type { Submission } from '../lib/types'
 import type { SearchResult } from '../lib/zerodb'
@@ -16,6 +16,13 @@ import {
   type SubmissionEmbeddingMetadata,
   type SearchSubmissionsParams
 } from '../lib/api/submissions'
+import {
+  getNextPageParam,
+  flattenPages,
+  createPaginationParams,
+  DEFAULT_PAGE_SIZE,
+  type PageSize
+} from '../lib/pagination'
 
 export const SUBMISSIONS_QUERY_KEY = 'submissions'
 export const SUBMISSION_SEARCH_QUERY_KEY = 'submission_search'
@@ -34,6 +41,27 @@ export function useSubmissionsByHackathon(hackathonId: string) {
     queryKey: [SUBMISSIONS_QUERY_KEY, { hackathon_id: hackathonId }],
     queryFn: () => getSubmissionsByHackathon(hackathonId),
     enabled: !!hackathonId
+  })
+}
+
+export function useInfiniteSubmissionsByHackathon(
+  hackathonId: string,
+  pageSize: PageSize = DEFAULT_PAGE_SIZE
+) {
+  return useInfiniteQuery({
+    queryKey: [SUBMISSIONS_QUERY_KEY, 'infinite', { hackathon_id: hackathonId, pageSize }],
+    queryFn: ({ pageParam = 0 }) =>
+      listSubmissions({
+        hackathon_id: hackathonId,
+        ...createPaginationParams(pageSize, pageParam)
+      }),
+    getNextPageParam: (lastPage, allPages) => getNextPageParam(lastPage, allPages, pageSize),
+    enabled: !!hackathonId,
+    select: (data) => ({
+      pages: data.pages,
+      pageParams: data.pageParams,
+      items: flattenPages(data.pages)
+    })
   })
 }
 
