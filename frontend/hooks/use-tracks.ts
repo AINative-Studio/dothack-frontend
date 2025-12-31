@@ -33,6 +33,31 @@ export function useCreateTrack() {
 
   return useMutation({
     mutationFn: (input: CreateTrackInput) => createTrack(input),
+    onMutate: async (newTrack) => {
+      const queryKey = [TRACKS_QUERY_KEY, { hackathon_id: newTrack.hackathon_id }]
+
+      await queryClient.cancelQueries({ queryKey })
+
+      const previousTracks = queryClient.getQueryData<Track[]>(queryKey)
+
+      const optimisticTrack: Track = {
+        track_id: `temp-${Date.now()}`,
+        hackathon_id: newTrack.hackathon_id,
+        name: newTrack.name,
+        description: newTrack.description,
+      }
+
+      queryClient.setQueryData<Track[]>(queryKey, (old) =>
+        old ? [...old, optimisticTrack] : [optimisticTrack]
+      )
+
+      return { previousTracks, queryKey }
+    },
+    onError: (_err, _newTrack, context) => {
+      if (context?.previousTracks) {
+        queryClient.setQueryData(context.queryKey, context.previousTracks)
+      }
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [TRACKS_QUERY_KEY] })
       queryClient.invalidateQueries({

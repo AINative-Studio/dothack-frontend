@@ -70,6 +70,31 @@ export function useCreateTeam() {
 
   return useMutation({
     mutationFn: (input: CreateTeamInput) => createTeam(input),
+    onMutate: async (newTeam) => {
+      const queryKey = [TEAMS_QUERY_KEY, { hackathon_id: newTeam.hackathon_id }]
+
+      await queryClient.cancelQueries({ queryKey })
+
+      const previousTeams = queryClient.getQueryData<Team[]>(queryKey)
+
+      const optimisticTeam: Team = {
+        team_id: `temp-${Date.now()}`,
+        hackathon_id: newTeam.hackathon_id,
+        name: newTeam.name,
+        track_id: newTeam.track_id,
+      }
+
+      queryClient.setQueryData<Team[]>(queryKey, (old) =>
+        old ? [...old, optimisticTeam] : [optimisticTeam]
+      )
+
+      return { previousTeams, queryKey }
+    },
+    onError: (_err, _newTeam, context) => {
+      if (context?.previousTeams) {
+        queryClient.setQueryData(context.queryKey, context.previousTeams)
+      }
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [TEAMS_QUERY_KEY] })
       queryClient.invalidateQueries({
@@ -84,6 +109,30 @@ export function useAddTeamMember() {
 
   return useMutation({
     mutationFn: (input: AddTeamMemberInput) => addTeamMember(input),
+    onMutate: async (newMember) => {
+      const queryKey = [TEAM_MEMBERS_QUERY_KEY, { team_id: newMember.team_id }]
+
+      await queryClient.cancelQueries({ queryKey })
+
+      const previousMembers = queryClient.getQueryData<TeamMember[]>(queryKey)
+
+      const optimisticMember: TeamMember = {
+        team_id: newMember.team_id,
+        participant_id: newMember.participant_id,
+        role: newMember.role,
+      }
+
+      queryClient.setQueryData<TeamMember[]>(queryKey, (old) =>
+        old ? [...old, optimisticMember] : [optimisticMember]
+      )
+
+      return { previousMembers, queryKey }
+    },
+    onError: (_err, _newMember, context) => {
+      if (context?.previousMembers) {
+        queryClient.setQueryData(context.queryKey, context.previousMembers)
+      }
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [TEAM_MEMBERS_QUERY_KEY] })
       queryClient.invalidateQueries({
