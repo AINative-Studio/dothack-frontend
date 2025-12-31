@@ -119,8 +119,33 @@ export async function listHackathonParticipants(
   return response.rows || []
 }
 
-export async function getParticipantsByHackathon(hackathonId: string): Promise<HackathonParticipant[]> {
-  return listHackathonParticipants({ hackathon_id: hackathonId })
+export async function getParticipantsByHackathon(hackathonId: string): Promise<(HackathonParticipant & { participant?: Participant })[]> {
+  const hackathonParticipants = await listHackathonParticipants({ hackathon_id: hackathonId })
+
+  // Get all participant IDs
+  const participantIds = hackathonParticipants.map(hp => hp.participant_id)
+
+  if (participantIds.length === 0) {
+    return []
+  }
+
+  // Fetch all participants
+  const participantsResponse = await zeroDBClient.queryRows<Participant>('participants', {
+    limit: 1000,
+  })
+
+  if (!participantsResponse.success) {
+    // Return without participant data if we can't fetch participants
+    return hackathonParticipants
+  }
+
+  const participants = participantsResponse.rows || []
+
+  // Join the data
+  return hackathonParticipants.map(hp => {
+    const participant = participants.find(p => p.participant_id === hp.participant_id)
+    return { ...hp, participant }
+  })
 }
 
 export async function getParticipantsByRole(

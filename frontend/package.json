@@ -9,7 +9,10 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "setup-db": "tsx scripts/setup-db.ts",
-    "verify-zerodb": "tsx scripts/verify-zerodb.ts"
+    "verify-zerodb": "tsx scripts/verify-zerodb.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -75,6 +78,19 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
+    "@swc/jest": "^0.2.39",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "babel-jest": "^30.2.0",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
+    "tsx": "^4.21.0",
+    "whatwg-fetch": "^3.6.20"
   }
 }

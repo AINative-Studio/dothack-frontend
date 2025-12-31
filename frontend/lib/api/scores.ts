@@ -91,3 +91,29 @@ export function calculateAverageScore(scores: Score[]): number {
   const sum = scores.reduce((acc, score) => acc + score.total_score, 0)
   return sum / scores.length
 }
+
+export async function getScoresByHackathon(hackathonId: string): Promise<Score[]> {
+  // Get all submissions for this hackathon
+  const submissionsResponse = await zeroDBClient.queryRows('submissions', {
+    filter: { hackathon_id: hackathonId },
+  })
+
+  if (!submissionsResponse.success || !submissionsResponse.rows || submissionsResponse.rows.length === 0) {
+    return []
+  }
+
+  const submissionIds = submissionsResponse.rows.map((s: any) => s.submission_id)
+
+  // Get all scores
+  const response = await zeroDBClient.queryRows<Score>('scores', {
+    limit: 1000,
+  })
+
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to fetch scores')
+  }
+
+  // Filter scores to only those matching our submission IDs
+  const allScores = response.rows || []
+  return allScores.filter(s => submissionIds.includes(s.submission_id))
+}
