@@ -6,19 +6,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { useStore } from '@/lib/store'
-import { Track, Rubric, HackathonStatus } from '@/lib/types'
-import { Plus, X } from 'lucide-react'
+import { useHackathonById, useUpdateHackathon } from '@/hooks/use-hackathons'
+import { useTracksByHackathon, useCreateTrack } from '@/hooks/use-tracks'
+import { useRubricByHackathon, useCreateRubric } from '@/hooks/use-rubrics'
+import type { HackathonStatus } from '@/lib/types'
+import { Plus, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function SetupPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { data, getCurrentHackathonStatus, addTrack, addRubric, addHackathon } = useStore()
-  const hackathon = getCurrentHackathonStatus(params.hackathonId)
+  const { data: hackathon, isLoading: hackathonLoading } = useHackathonById(params.hackathonId)
+  const { data: tracks = [], isLoading: tracksLoading } = useTracksByHackathon(params.hackathonId)
+  const { data: rubrics = [], isLoading: rubricsLoading } = useRubricByHackathon(params.hackathonId)
+
+  const updateHackathon = useUpdateHackathon()
+  const createTrack = useCreateTrack()
+  const createRubric = useCreateRubric()
 
   const [showTrackForm, setShowTrackForm] = useState(false)
   const [trackData, setTrackData] = useState({ name: '', description: '' })
@@ -26,8 +33,71 @@ export default function SetupPage({
   const [showRubricForm, setShowRubricForm] = useState(false)
   const [rubricData, setRubricData] = useState({ title: '', criteria_json: '' })
 
-  const tracks = data.tracks.filter(t => t.hackathon_id === params.hackathonId)
-  const rubrics = data.rubrics.filter(r => r.hackathon_id === params.hackathonId)
+  const handleAddTrack = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await createTrack.mutateAsync({
+        hackathon_id: params.hackathonId,
+        name: trackData.name,
+        description: trackData.description,
+      })
+      toast.success('Track created successfully')
+      setTrackData({ name: '', description: '' })
+      setShowTrackForm(false)
+    } catch (error) {
+      console.error('Failed to create track:', error)
+      toast.error('Failed to create track', {
+        description: error instanceof Error ? error.message : 'Please try again',
+      })
+    }
+  }
+
+  const handleAddRubric = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const criteria = JSON.parse(rubricData.criteria_json)
+      await createRubric.mutateAsync({
+        hackathon_id: params.hackathonId,
+        title: rubricData.title,
+        criteria,
+      })
+      toast.success('Rubric created successfully')
+      setRubricData({ title: '', criteria_json: '' })
+      setShowRubricForm(false)
+    } catch (error) {
+      console.error('Failed to create rubric:', error)
+      toast.error('Failed to create rubric', {
+        description: error instanceof Error ? error.message : 'Please check JSON format',
+      })
+    }
+  }
+
+  const handleStatusChange = async (newStatus: HackathonStatus) => {
+    if (!hackathon) return
+
+    try {
+      await updateHackathon.mutateAsync({
+        hackathon_id: params.hackathonId,
+        status: newStatus,
+      })
+      toast.success(`Hackathon status changed to ${newStatus}`)
+    } catch (error) {
+      console.error('Failed to update status:', error)
+      toast.error('Failed to update status', {
+        description: error instanceof Error ? error.message : 'Please try again',
+      })
+    }
+  }
+
+  if (hackathonLoading || tracksLoading || rubricsLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      </div>
+    )
+  }
 
   if (!hackathon) {
     return (
@@ -35,40 +105,6 @@ export default function SetupPage({
         <p className="text-gray-600">Hackathon not found</p>
       </div>
     )
-  }
-
-  const handleAddTrack = (e: React.FormEvent) => {
-    e.preventDefault()
-    const newTrack: Track = {
-      track_id: `track_${Date.now()}`,
-      hackathon_id: params.hackathonId,
-      name: trackData.name,
-      description: trackData.description,
-    }
-    addTrack(newTrack)
-    setTrackData({ name: '', description: '' })
-    setShowTrackForm(false)
-  }
-
-  const handleAddRubric = (e: React.FormEvent) => {
-    e.preventDefault()
-    const newRubric: Rubric = {
-      rubric_id: `rubric_${Date.now()}`,
-      hackathon_id: params.hackathonId,
-      title: rubricData.title,
-      criteria_json: rubricData.criteria_json,
-    }
-    addRubric(newRubric)
-    setRubricData({ title: '', criteria_json: '' })
-    setShowRubricForm(false)
-  }
-
-  const handleStatusChange = (newStatus: HackathonStatus) => {
-    addHackathon({
-      ...hackathon,
-      status: newStatus,
-      created_at: new Date().toISOString(),
-    })
   }
 
   const getStatusColor = (status: string) => {
@@ -107,22 +143,25 @@ export default function SetupPage({
                   size="sm"
                   variant={hackathon.status === 'DRAFT' ? 'default' : 'outline'}
                   onClick={() => handleStatusChange('DRAFT')}
+                  disabled={updateHackathon.isPending}
                 >
-                  Draft
+                  {updateHackathon.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Draft'}
                 </Button>
                 <Button
                   size="sm"
                   variant={hackathon.status === 'LIVE' ? 'default' : 'outline'}
                   onClick={() => handleStatusChange('LIVE')}
+                  disabled={updateHackathon.isPending}
                 >
-                  Live
+                  {updateHackathon.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Live'}
                 </Button>
                 <Button
                   size="sm"
                   variant={hackathon.status === 'CLOSED' ? 'default' : 'outline'}
                   onClick={() => handleStatusChange('CLOSED')}
+                  disabled={updateHackathon.isPending}
                 >
-                  Closed
+                  {updateHackathon.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Closed'}
                 </Button>
               </div>
             </div>
@@ -168,12 +207,22 @@ export default function SetupPage({
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" size="sm">Add</Button>
+                  <Button type="submit" size="sm" disabled={createTrack.isPending}>
+                    {createTrack.isPending ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      'Add'
+                    )}
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     onClick={() => setShowTrackForm(false)}
+                    disabled={createTrack.isPending}
                   >
                     Cancel
                   </Button>
@@ -239,12 +288,22 @@ export default function SetupPage({
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" size="sm">Add</Button>
+                  <Button type="submit" size="sm" disabled={createRubric.isPending}>
+                    {createRubric.isPending ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      'Add'
+                    )}
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     onClick={() => setShowRubricForm(false)}
+                    disabled={createRubric.isPending}
                   >
                     Cancel
                   </Button>
