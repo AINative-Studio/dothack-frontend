@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = 'force-dynamic'
+
 import { useAuth } from '@/hooks/use-auth'
 import { OrganizerDashboard } from './components/OrganizerDashboard'
 import { BuilderDashboard } from './components/BuilderDashboard'
