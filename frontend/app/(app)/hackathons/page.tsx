@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/lib/auth/auth-context'
 import { OrganizerDashboard } from './components/OrganizerDashboard'
 import { BuilderDashboard } from './components/BuilderDashboard'
 import { JudgeDashboard } from './components/JudgeDashboard'

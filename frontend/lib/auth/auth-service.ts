@@ -8,7 +8,8 @@ import type {
   AuthError
 } from './types'
 
-const AUTH_API_BASE = process.env.NEXT_PUBLIC_AINATIVE_AUTH_URL || 'https://api.ainative.studio/v1/auth'
+// Use the DotHack backend auth proxy, which forwards to AINative
+const AUTH_API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1') + '/auth'
 const TOKEN_KEY = 'auth_token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const USER_KEY = 'auth_user'
@@ -248,6 +249,8 @@ class AuthService {
     if (typeof window === 'undefined') return
 
     localStorage.setItem(TOKEN_KEY, tokens.access_token)
+    // Set cookie so Next.js middleware can read token for route protection
+    document.cookie = `auth_token=${tokens.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
 
     if (tokens.refresh_token) {
       localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token)

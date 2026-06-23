@@ -32,6 +32,7 @@ import {
   login as apiLogin,
   refreshToken as apiRefreshToken,
   getMe,
+  getMeWithApiKey,
   type AuthUser,
 } from '@/lib/api/auth'
 
@@ -82,6 +83,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginWithApiKey: (apiKey: string) => Promise<void>
   logout: () => void
   refresh: () => Promise<void>
 }
@@ -209,6 +211,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyTokens]
   )
 
+  // ---- login with API key ------------------------------------------------
+
+  const loginWithApiKey = useCallback(
+    async (apiKey: string): Promise<void> => {
+      setIsLoading(true)
+      try {
+        const me = await getMeWithApiKey(apiKey)
+        // Use the API key as the "token" for subsequent requests
+        applyTokens(apiKey, undefined, me)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [applyTokens]
+  )
+
   // ---- logout ------------------------------------------------------------
 
   const logout = useCallback(() => {
@@ -223,6 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!token && !!user,
     isLoading,
     login,
+    loginWithApiKey,
     logout,
     refresh,
   }

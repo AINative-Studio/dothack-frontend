@@ -2,14 +2,17 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { authService } from './auth-service'
+import { getMeWithApiKey } from '@/lib/api/auth'
 import { showErrorToast } from '@/lib/error-handling'
 import type { User, LoginCredentials, SignupCredentials } from './types'
 
 interface AuthContextType {
   user: User | null
+  token: string | null
   isLoading: boolean
   isAuthenticated: boolean
   login: (credentials: LoginCredentials) => Promise<void>
+  loginWithApiKey: (apiKey: string) => Promise<void>
   signup: (credentials: SignupCredentials) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -67,6 +70,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function loginWithApiKey(apiKey: string) {
+    try {
+      setIsLoading(true)
+      const me = await getMeWithApiKey(apiKey)
+      // Store in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_token', apiKey)
+        localStorage.setItem('auth_user', JSON.stringify(me))
+        // Also set cookie so middleware can read it for route protection
+        document.cookie = `auth_token=${apiKey}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+      }
+      setUser(me as any)
+    } catch (error: any) {
+      setUser(null)
+      throw new Error('Invalid API key')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   async function signup(credentials: SignupCredentials) {
     try {
       setIsLoading(true)
@@ -105,11 +128,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Read token from localStorage for API hooks
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+
   const value: AuthContextType = {
     user,
+    token,
     isLoading,
     isAuthenticated: !!user,
     login,
+    loginWithApiKey,
     signup,
     logout,
     refreshUser

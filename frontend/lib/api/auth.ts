@@ -78,3 +78,17 @@ export async function getMe(token: string): Promise<AuthUser> {
     token,
   })
 }
+
+/**
+ * Authenticate with an AINative API key.
+ * Calls GET /auth/me with X-API-Key header.
+ */
+export async function getMeWithApiKey(apiKey: string): Promise<AuthUser> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
+  const res = await fetch(`${API_URL}/auth/me`, {
+    method: 'GET',
+    headers: { 'X-API-Key': apiKey },
+  })
+  if (!res.ok) throw new Error('Invalid API key')
+  return res.json()
+}

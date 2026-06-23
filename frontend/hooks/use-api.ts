@@ -17,7 +17,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from '@tanstack/react-query'
-import { useAuth } from './use-auth'
+import { useAuth } from '@/lib/auth/auth-context'
 
 // API modules
 import {

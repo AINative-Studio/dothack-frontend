@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOrganizerDashboard, useHackathons, useCreateHackathon } from '@/hooks/use-api'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/lib/auth/auth-context'
 import { toast } from 'sonner'
 
 // ---------------------------------------------------------------------------
