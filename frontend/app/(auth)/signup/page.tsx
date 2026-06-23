@@ -1,8 +1,8 @@
 import { SignupForm } from '@/components/auth/SignupForm'
 
 export const metadata = {
-  title: 'Sign Up - DotHack',
-  description: 'Create your DotHack account',
+  title: 'Create Account — DotHack',
+  description: 'Create your DotHack account powered by AINative Studio',
 }
 
 export default function SignupPage() {

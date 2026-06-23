@@ -23,7 +23,19 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/', '/.next/', '/__tests__/utils/'],
   moduleDirectories: ['node_modules', '<rootDir>/'],
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
+    '^.+\\.(js|jsx|ts|tsx)$': ['@swc/jest', {
+      jsc: {
+        parser: {
+          syntax: 'typescript',
+          tsx: true,
+        },
+        transform: {
+          react: {
+            runtime: 'automatic',
+          },
+        },
+      },
+    }],
   },
   transformIgnorePatterns: [
     'node_modules/(?!(sonner|@radix-ui)/)',

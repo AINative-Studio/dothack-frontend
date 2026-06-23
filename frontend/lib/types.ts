@@ -1,13 +1,25 @@
-export type HackathonStatus = 'DRAFT' | 'LIVE' | 'CLOSED'
+export type HackathonStatus = 'draft' | 'upcoming' | 'active' | 'judging' | 'completed' | 'cancelled'
 
 export type Hackathon = {
   hackathon_id: string
   name: string
-  description: string
+  description?: string
+  organizer_id: string
   status: HackathonStatus
-  start_at: string
-  end_at: string
+  start_date: string
+  end_date: string
+  location?: string
+  registration_deadline?: string
+  max_participants?: number
+  website_url?: string
+  logo_url?: string
+  is_online?: boolean
+  participant_count?: number
+  prizes?: Record<string, any>
+  rules?: string
+  is_deleted?: boolean
   created_at: string
+  updated_at: string
 }
 
 export type Track = {

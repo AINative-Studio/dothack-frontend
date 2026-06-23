@@ -1,586 +1,334 @@
-'use client'
-
 import Link from 'next/link'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Users, Trophy, FolderKanban, CheckCircle, Target, Award, Code, Zap, Building2, Rocket, ArrowRight, Globe, TrendingUp, Clock, Shield, BarChart } from 'lucide-react'
-import HackathonsForYou from '@/components/homepage/HackathonsForYou'
-import TopHackathonThemes from '@/components/homepage/TopHackathonThemes'
+
+// ─── Hero console preview data ───────────────────────────────────────────────
+const consoleTracks = [
+  { name: 'AI / ML', count: 87, active: true },
+  { name: 'Web3', count: 63, active: true },
+  { name: 'DevTools', count: 51, active: true },
+  { name: 'Sustainability', count: 38, active: false },
+]
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+const stats = [
+  { value: '2,400+', label: 'Builders' },
+  { value: '180+', label: 'Hackathons' },
+  { value: '12K+', label: 'Submissions' },
+  { value: '<200ms', label: 'Search' },
+]
+
+// ─── Pipeline features ────────────────────────────────────────────────────────
+const pipeline = [
+  {
+    phase: '01',
+    title: 'Setup & Config',
+    desc: 'Define tracks, rubrics, prizes, and team rules. Invite judges and mentors. Flip the switch to go live.',
+    bullets: ['Custom tracks & themes', 'Judging rubrics', 'Prize pools', 'Invite management'],
+  },
+  {
+    phase: '02',
+    title: 'Build & Submit',
+    desc: 'Builders form teams, create projects, and submit work through a guided portal — all before the deadline.',
+    bullets: ['Team formation', 'Project dashboard', 'Submission portal', 'Deadline enforcement'],
+  },
+  {
+    phase: '03',
+    title: 'Judge & Rank',
+    desc: 'Judges score against your rubric. Live leaderboard updates in real time. Export results instantly.',
+    bullets: ['Criteria-based scoring', 'Judge assignments', 'Live leaderboard', 'CSV export'],
+  },
+]
+
+// ─── Role cards ───────────────────────────────────────────────────────────────
+const roles = [
+  {
+    badge: 'Organizer',
+    title: 'Full command over every detail.',
+    desc: 'Spin up a hackathon, configure every setting, and track the full event from one admin console.',
+    capabilities: [
+      'Hackathon creation & config',
+      'Participant & invite management',
+      'Real-time analytics dashboard',
+      'Export and reporting tools',
+    ],
+  },
+  {
+    badge: 'Builder',
+    title: 'Focus on shipping, not logistics.',
+    desc: 'Register, form a team, track your project, and submit before the deadline — with zero friction.',
+    capabilities: [
+      'Team formation & joining',
+      'Project creation & updates',
+      'One-click submission',
+      'Live event feed',
+    ],
+  },
+  {
+    badge: 'Judge',
+    title: 'Score with clarity and confidence.',
+    desc: 'Review submissions through a structured interface, score against defined rubrics, and leave feedback.',
+    capabilities: [
+      'Structured rubric scoring',
+      'Submission review panel',
+      'Qualitative feedback forms',
+      'Conflict-of-interest flags',
+    ],
+  },
+]
 
 export default function HomePage() {
   return (
     <div>
-      <section className="relative overflow-hidden py-20 md:py-28">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-50"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNm0wIDEyYzMuMzE0IDAgNiAyLjY4NiA2IDZzLTIuNjg2IDYtNiA2LTYtMi42ODYtNi02IDIuNjg2LTYgNi02bTAgMTJjMy4zMTQgMCA2IDIuNjg2IDYgNnMtMi42ODYgNi02IDYtNi0yLjY4Ni02LTYgMi42ODYtNiA2LTZNMjQgMThjMy4zMTQgMCA2IDIuNjg2IDYgNnMtMi42ODYgNi02IDYtNi0yLjY4NiA2LTYgMi42ODYtNiA2LTZtMCAxMmMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNm0wIDEyYzMuMzE0IDAgNiAyLjY4NiA2IDZzLTIuNjg2IDYtNiA2LTYtMi42ODYtNi02IDIuNjg2LTYgNi02TTEyIDE4YzMuMzE0IDAgNiAyLjY4NiA2IDZzLTIuNjg2IDYtNiA2LTYtMi42ODYtNi02IDIuNjg2LTYgNi02bTAgMTJjMy4zMTQgMCA2IDIuNjg2IDYgNnMtMi42ODYgNi02IDYtNi0yLjY4NiA2LTYgMi42ODYtNiA2LTZtMCAxMmMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9Ii4xIiBvcGFjaXR5PSIuMDUiLz48L2c+PC9zdmc+')] opacity-40"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto">
-            <div className="text-center lg:text-left">
-              <Badge className="mb-6 px-4 py-2 bg-blue-100 text-blue-700 border-blue-200 text-sm font-semibold hover:bg-blue-100">
-                Trusted by leading companies worldwide
-              </Badge>
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-slate-900 via-blue-800 to-cyan-800 bg-clip-text text-transparent leading-tight">
-                Run better public and internal hackathons
+      {/* ─── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="bg-cream border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16 md:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
+            {/* Left: 60% */}
+            <div className="lg:col-span-3">
+              {/* Badge */}
+              <div className="inline-flex items-center border-[1.5px] border-ink px-3 py-1 mb-8">
+                <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink">
+                  AI-Native Hackathon Ops
+                </span>
+              </div>
+
+              {/* Heading */}
+              <h1 className="font-archivo font-black text-5xl md:text-6xl uppercase leading-[1] tracking-[-0.03em] text-ink mb-6">
+                Run the entire hackathon from one console.
               </h1>
-              <p className="text-lg md:text-xl text-slate-600 mb-10 leading-relaxed">
-                Plan and manage your hackathons easily with DotHack's all-in-one software, services, and community.
+
+              {/* Subtitle */}
+              <p className="font-sans text-[17px] leading-relaxed text-muted mb-10 max-w-xl">
+                Setup, teams, submissions, judging, and wrap-up — orchestrated in real time.
               </p>
-              <div className="flex gap-4 justify-center lg:justify-start flex-wrap mb-8">
+
+              {/* CTAs */}
+              <div className="flex flex-wrap gap-4">
                 <Link href="/hackathons">
-                  <Button size="lg" className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg">
-                    Get Started Free <ArrowRight className="h-5 w-5 ml-2" />
+                  <Button size="lg" variant="default">
+                    Start a hackathon
                   </Button>
                 </Link>
                 <Link href="/contact">
-                  <Button size="lg" variant="outline" className="border-2">
-                    Contact Sales
+                  <Button size="lg" variant="outline">
+                    Watch the demo
                   </Button>
                 </Link>
               </div>
             </div>
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-2xl blur-3xl opacity-20"></div>
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-white">
-                <Image
-                  src="https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg"
-                  alt="Developers collaborating at a hackathon"
-                  width={800}
-                  height={600}
-                  className="w-full h-auto object-cover"
-                  priority
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            <Card className="border-2 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 group cursor-pointer">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                    <Globe className="h-6 w-6 text-white" />
-                  </div>
-                  <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">Popular</Badge>
+            {/* Right: 40% — Console preview */}
+            <div className="lg:col-span-2">
+              <div className="border-2 border-ink bg-ink">
+                {/* Console header bar */}
+                <div className="border-b-2 border-[#2a2720] px-4 py-3 flex items-center justify-between">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+                    dothack console — live
+                  </span>
+                  <span className="w-2 h-2 bg-accent rounded-full animate-dh-pulse" />
                 </div>
-                <CardTitle className="text-2xl mb-2">Host Public Hackathons</CardTitle>
-                <CardDescription className="text-base leading-relaxed">
-                  Get your tools in the hands of developers around the world with DotHack.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/public-hackathons">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg group-hover:shadow-xl transition-all">
-                    Host a public hackathon <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
 
-            <Card className="border-2 hover:border-emerald-300 hover:shadow-2xl transition-all duration-300 group cursor-pointer">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-                    <Building2 className="h-6 w-6 text-white" />
-                  </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200">For Teams</Badge>
-                </div>
-                <CardTitle className="text-2xl mb-2">Host Internal Hackathons</CardTitle>
-                <CardDescription className="text-base leading-relaxed">
-                  Drive employee and customer innovation in less time with DotHack for Teams.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/internal-hackathons">
-                  <Button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg group-hover:shadow-xl transition-all">
-                    Host internal hackathons <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="text-center text-sm text-slate-500 mt-8">
-            <Link href="/contact" className="hover:text-slate-700 transition-colors underline">
-              Not sure which is right for you? Contact us for guidance
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 bg-white border-y">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">You're in good hands with DotHack</h2>
-            <p className="text-slate-600 max-w-3xl mx-auto">
-              We've been powering hackathons since 2009. Our solutions simplify hackathon management, elevate the participant experience, and drive greater business outcomes.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
-            <div className="text-center">
-              <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-                4 million+
-              </div>
-              <div className="text-slate-600">developer community</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
-                10,000+
-              </div>
-              <div className="text-slate-600">hackathons powered</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                14 years+
-              </div>
-              <div className="text-slate-600">of hackathon experience</div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <p className="text-sm text-slate-500 mb-6">Join the leading companies that trust DotHack to power their hackathons</p>
-            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-60">
-              <div className="text-2xl font-bold text-slate-400">Microsoft</div>
-              <div className="text-2xl font-bold text-slate-400">Google</div>
-              <div className="text-2xl font-bold text-slate-400">Meta</div>
-              <div className="text-2xl font-bold text-slate-400">AWS</div>
-              <div className="text-2xl font-bold text-slate-400">Atlassian</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-br from-slate-50 to-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
-            <div>
-              <HackathonsForYou />
-            </div>
-            <div>
-              <TopHackathonThemes />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-br from-blue-50 to-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-              <div>
-                <Badge className="mb-4 px-4 py-2 bg-blue-100 text-blue-700 border-blue-200">
-                  Public Hackathons
-                </Badge>
-                <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900">
-                  Run online hackathons that reach more developers
-                </h2>
-                <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                  Maximize your impact with DotHack. Our team can help you create, manage, and market your competitions to ensure success.
-                </p>
-                <div className="space-y-4 mb-8">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <CheckCircle className="h-4 w-4 text-blue-600" />
+                <div className="p-5 space-y-5">
+                  {/* Live metrics */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="border border-[#2a2720] p-3">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted mb-1">
+                        Builders live
+                      </div>
+                      <div className="font-archivo font-black text-3xl text-cream leading-none">
+                        1,428
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 mb-1">Reach 4+ million developers</div>
-                      <div className="text-slate-600">Connect with our global community of skilled developers</div>
+                    <div className="border border-[#2a2720] p-3">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted mb-1">
+                        Submissions
+                      </div>
+                      <div className="font-archivo font-black text-3xl text-cream leading-none">
+                        312
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <CheckCircle className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 mb-1">Drive product adoption and awareness</div>
-                      <div className="text-slate-600">Increase adoption, awareness, feedback, and ideation for your products</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <CheckCircle className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 mb-1">Get end-to-end hackathon support</div>
-                      <div className="text-slate-600">From planning to execution, our team is with you every step</div>
-                    </div>
-                  </div>
-                </div>
-                <Link href="/public-hackathons">
-                  <Button size="lg" className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg">
-                    Host a public hackathon <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
 
-              <div>
-                <Badge className="mb-4 px-4 py-2 bg-emerald-100 text-emerald-700 border-emerald-200">
-                  Internal Hackathons
-                </Badge>
-                <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900">
-                  Run internal hackathons that fuel corporate innovation
-                </h2>
-                <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                  DotHack simplifies hackathon management so you can focus on what truly matters: innovation, collaboration, and employee retention.
-                </p>
-                <div className="space-y-4 mb-8">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <CheckCircle className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 mb-1">Engage employees and customers</div>
-                      <div className="text-slate-600">Foster creativity and collaboration across your organization</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <CheckCircle className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 mb-1">Centralize your hackathon operations</div>
-                      <div className="text-slate-600">Team building, project submissions, judging, and more in one place</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <CheckCircle className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 mb-1">Increase participation and ROI</div>
-                      <div className="text-slate-600">Proven to boost engagement while saving time and resources</div>
-                    </div>
-                  </div>
-                </div>
-                <Link href="/internal-hackathons">
-                  <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg">
-                    Host internal hackathons <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-br from-violet-50 to-purple-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <Card className="border-2 shadow-xl">
-              <CardContent className="p-8 md:p-12">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-                    <Building2 className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-violet-600 mb-2">Microsoft</div>
-                    <blockquote className="text-lg text-slate-700 leading-relaxed italic">
-                      "We received 300% more submissions than I expected. I was impressed and happy with the results. The team was great to work with, very flexible and accommodating – because of this we ran a very successful hackathon."
-                    </blockquote>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 container mx-auto px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            Complete hackathon management platform
-          </h2>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Everything you need to run successful hackathons from start to finish
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          <Card className="border-2 hover:border-blue-200 hover:shadow-xl transition-all duration-300">
-            <CardHeader>
-              <div className="w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-lg">Participant Management</CardTitle>
-              <CardDescription>
-                Manage participants, assign roles, and organize teams efficiently
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="border-2 hover:border-emerald-200 hover:shadow-xl transition-all duration-300">
-            <CardHeader>
-              <div className="w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-                <FolderKanban className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-lg">Project Tracking</CardTitle>
-              <CardDescription>
-                Track project progress from idea to submission with full visibility
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="border-2 hover:border-violet-200 hover:shadow-xl transition-all duration-300">
-            <CardHeader>
-              <div className="w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
-                <CheckCircle className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-lg">Submission Portal</CardTitle>
-              <CardDescription>
-                Centralized submission system with search and filtering
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="border-2 hover:border-orange-200 hover:shadow-xl transition-all duration-300">
-            <CardHeader>
-              <div className="w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg">
-                <Target className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-lg">Custom Rubrics</CardTitle>
-              <CardDescription>
-                Create custom judging rubrics with flexible criteria
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="border-2 hover:border-rose-200 hover:shadow-xl transition-all duration-300">
-            <CardHeader>
-              <div className="w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
-                <Award className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-lg">Judging System</CardTitle>
-              <CardDescription>
-                Streamlined judging workflow with criteria-based scoring
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="border-2 hover:border-yellow-200 hover:shadow-xl transition-all duration-300">
-            <CardHeader>
-              <div className="w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center shadow-lg">
-                <Trophy className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-lg">Live Leaderboard</CardTitle>
-              <CardDescription>
-                Real-time leaderboard with track filtering and CSV export
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Make a real impact on your business with hackathons
-              </h2>
-              <p className="text-lg text-slate-300">
-                Here are the 5 challenges your business can solve with hackathons
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all">
-                <CardHeader>
-                  <TrendingUp className="h-8 w-8 text-blue-400 mb-3" />
-                  <CardTitle className="text-white text-lg">Drive Innovation</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Generate new ideas and solutions to business challenges
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all">
-                <CardHeader>
-                  <Users className="h-8 w-8 text-emerald-400 mb-3" />
-                  <CardTitle className="text-white text-lg">Boost Engagement</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Increase employee engagement and team collaboration
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all">
-                <CardHeader>
-                  <Rocket className="h-8 w-8 text-violet-400 mb-3" />
-                  <CardTitle className="text-white text-lg">Product Adoption</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Get developers building with your APIs and tools
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all">
-                <CardHeader>
-                  <Clock className="h-8 w-8 text-orange-400 mb-3" />
-                  <CardTitle className="text-white text-lg">Faster Time to Market</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Accelerate development and prototype validation
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all">
-                <CardHeader>
-                  <Shield className="h-8 w-8 text-rose-400 mb-3" />
-                  <CardTitle className="text-white text-lg">Talent Discovery</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Identify and recruit top developer talent
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all">
-                <CardHeader>
-                  <BarChart className="h-8 w-8 text-cyan-400 mb-3" />
-                  <CardTitle className="text-white text-lg">Brand Awareness</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Build your brand in the developer community
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900">
-                Run your next great hackathon
-              </h2>
-              <p className="text-lg text-slate-600 mb-8">
-                Fill out the form below to book your demo today
-              </p>
-            </div>
-
-            <Card className="border-2 shadow-xl max-w-2xl mx-auto">
-              <CardContent className="p-8">
-                <form className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="firstName" className="text-sm font-semibold text-slate-700">
-                        First Name *
-                      </label>
-                      <Input id="firstName" placeholder="John" className="border-2" required />
+                  {/* Track list */}
+                  <div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted mb-3">
+                      Active Tracks
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="lastName" className="text-sm font-semibold text-slate-700">
-                        Last Name *
-                      </label>
-                      <Input id="lastName" placeholder="Doe" className="border-2" required />
+                      {consoleTracks.map((track) => (
+                        <div
+                          key={track.name}
+                          className="flex items-center justify-between border border-[#2a2720] px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                track.active ? 'bg-accent' : 'bg-muted'
+                              }`}
+                            />
+                            <span className="font-mono text-[10px] text-cream uppercase tracking-[0.05em]">
+                              {track.name}
+                            </span>
+                          </div>
+                          <span className="font-mono text-[10px] text-muted">
+                            {track.count} teams
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-semibold text-slate-700">
-                      Work Email *
-                    </label>
-                    <Input id="email" type="email" placeholder="john@company.com" className="border-2" required />
+
+                  {/* Status bar */}
+                  <div className="border-t border-[#2a2720] pt-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent animate-dh-pulse flex-shrink-0" />
+                    <span className="font-mono text-[9px] text-muted uppercase tracking-[0.06em]">
+                      Event status: LIVE — 14h 22m remaining
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <label htmlFor="company" className="text-sm font-semibold text-slate-700">
-                      Company *
-                    </label>
-                    <Input id="company" placeholder="Your Company" className="border-2" required />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="hackathonType" className="text-sm font-semibold text-slate-700">
-                      I'm interested in *
-                    </label>
-                    <select id="hackathonType" className="w-full px-3 py-2 border-2 rounded-md" required>
-                      <option value="">Select an option</option>
-                      <option value="public">Public Hackathons</option>
-                      <option value="internal">Internal Hackathons</option>
-                      <option value="both">Both</option>
-                    </select>
-                  </div>
-                  <Button type="submit" size="lg" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg">
-                    Request Demo
-                  </Button>
-                  <p className="text-xs text-slate-500 text-center">
-                    By submitting this form, you agree to our Terms of Service and Privacy Policy
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Stats strip ──────────────────────────────────────────────────── */}
+      <section className="bg-ink border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0">
+            {stats.map((s, i) => (
+              <div
+                key={s.label}
+                className={`py-8 px-6 text-center ${
+                  i < stats.length - 1 ? 'md:border-r-2 border-[#2a2720]' : ''
+                }`}
+              >
+                <div className="font-archivo font-black text-[42px] leading-none text-cream mb-2">
+                  {s.value}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Pipeline / Features ──────────────────────────────────────────── */}
+      <section className="bg-cream border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16 md:py-24">
+          {/* Section header */}
+          <div className="mb-12 border-b-2 border-ink pb-6">
+            <h2 className="font-archivo font-black text-4xl uppercase tracking-[-0.03em] text-ink">
+              The Pipeline
+            </h2>
+          </div>
+
+          {/* 3-column grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-2 border-ink">
+            {pipeline.map((item, i) => (
+              <div
+                key={item.phase}
+                className={`${i < pipeline.length - 1 ? 'md:border-r-2 border-ink' : ''}`}
+              >
+                {/* Dark header stripe */}
+                <div className="bg-ink px-5 py-4 flex items-center justify-between border-b-2 border-ink">
+                  <span className="font-archivo font-black text-sm uppercase tracking-wider text-cream">
+                    {item.title}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted">
+                    {item.phase}
+                  </span>
+                </div>
+
+                {/* Card body */}
+                <div className="p-5">
+                  <p className="font-sans text-sm leading-relaxed text-muted mb-5">
+                    {item.desc}
                   </p>
-                </form>
-              </CardContent>
-            </Card>
+                  <ul className="space-y-2">
+                    {item.bullets.map((b) => (
+                      <li key={b} className="flex items-center gap-2">
+                        <span className="w-1 h-1 bg-accent flex-shrink-0" />
+                        <span className="font-sans text-sm text-ink">{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="py-16 bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <Card className="border-2 hover:shadow-lg transition-all">
-              <CardHeader>
-                <Code className="h-10 w-10 text-blue-600 mb-3" />
-                <CardTitle className="text-xl mb-2">Hackathon Planning Guides</CardTitle>
-                <CardDescription>
-                  Best practice guides for successful virtual and in-person hackathons
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/docs" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center group">
-                  Download guides <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </CardContent>
-            </Card>
+      {/* ─── Role-based section ───────────────────────────────────────────── */}
+      <section className="bg-cream-dark border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16 md:py-24">
+          {/* Section header */}
+          <div className="mb-12 border-b-2 border-ink pb-6">
+            <h2 className="font-archivo font-black text-4xl uppercase tracking-[-0.03em] text-ink">
+              Built for every role
+            </h2>
+          </div>
 
-            <Card className="border-2 hover:shadow-lg transition-all">
-              <CardHeader>
-                <Zap className="h-10 w-10 text-emerald-600 mb-3" />
-                <CardTitle className="text-xl mb-2">Latest Blog Posts</CardTitle>
-                <CardDescription>
-                  Get the latest news, updates, and tips for hackathon planning
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/docs" className="text-emerald-600 hover:text-emerald-700 font-semibold inline-flex items-center group">
-                  View the blog <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {roles.map((role) => (
+              <div key={role.badge} className="border-2 border-ink bg-cream">
+                {/* Role badge */}
+                <div className="px-5 pt-5 pb-4 border-b-2 border-ink">
+                  <div className="inline-flex items-center border-[1.5px] border-ink px-2 py-0.5 mb-3">
+                    <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-ink">
+                      {role.badge}
+                    </span>
+                  </div>
+                  <h3 className="font-archivo font-black text-xl uppercase tracking-[-0.02em] text-ink leading-tight">
+                    {role.title}
+                  </h3>
+                </div>
 
-            <Card className="border-2 hover:shadow-lg transition-all">
-              <CardHeader>
-                <Trophy className="h-10 w-10 text-violet-600 mb-3" />
-                <CardTitle className="text-xl mb-2">Customer Success Stories</CardTitle>
-                <CardDescription>
-                  Don't take our word for it. See for yourself why customers love us
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/docs" className="text-violet-600 hover:text-violet-700 font-semibold inline-flex items-center group">
-                  See customer stories <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </CardContent>
-            </Card>
+                {/* Card body */}
+                <div className="p-5">
+                  <p className="font-sans text-sm leading-relaxed text-muted mb-5">
+                    {role.desc}
+                  </p>
+                  <ul className="space-y-2">
+                    {role.capabilities.map((c) => (
+                      <li key={c} className="flex items-center gap-2">
+                        <span className="w-1 h-1 bg-ink flex-shrink-0" />
+                        <span className="font-sans text-sm text-ink">{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20 bg-gradient-to-br from-blue-600 to-cyan-600 text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold mb-6">
-            Ready to run your hackathon?
+      {/* ─── CTA Section ─────────────────────────────────────────────────── */}
+      <section className="bg-ink">
+        <div className="max-w-7xl mx-auto px-6 py-20 md:py-28 text-center">
+          <h2 className="font-archivo font-black text-4xl md:text-5xl uppercase tracking-[-0.03em] text-cream mb-4 max-w-2xl mx-auto leading-tight">
+            Ready to run your next hackathon?
           </h2>
-          <p className="text-xl mb-8 text-blue-50 max-w-2xl mx-auto">
-            Join thousands of companies using DotHack to power successful hackathons
+          <p className="font-sans text-[17px] text-muted mb-10 max-w-xl mx-auto">
+            Join thousands of organizers who trust DotHack to power their events from start to finish.
           </p>
-          <div className="flex gap-4 justify-center flex-wrap">
+          <div className="flex flex-wrap gap-4 justify-center">
             <Link href="/hackathons">
-              <Button size="lg" variant="secondary" className="bg-white text-blue-600 hover:bg-slate-50 shadow-xl text-base px-8 py-6">
-                Get Started Free <ArrowRight className="h-5 w-5 ml-2" />
+              <Button size="lg" variant="default">
+                Start a hackathon
               </Button>
             </Link>
             <Link href="/contact">
-              <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 text-base px-8 py-6">
-                Contact Sales
+              <Button
+                size="lg"
+                className="bg-transparent text-cream border-2 border-cream hover:bg-cream hover:text-ink"
+              >
+                Talk to sales
               </Button>
             </Link>
           </div>

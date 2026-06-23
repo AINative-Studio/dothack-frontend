@@ -3,39 +3,36 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { featuredHackathonsAPI, FeaturedHackathon } from '@/lib/api/backend-client'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { ArrowRight, Globe } from 'lucide-react'
 
-interface Hackathon {
-  id: string
-  title: string
-  logo_url: string
-  days_left: number
-  is_online: boolean
-  prize_amount: number
-  participant_count: number
-}
-
 export default function HackathonsForYou() {
-  const [hackathons, setHackathons] = useState<Hackathon[]>([])
+  const [hackathons, setHackathons] = useState<FeaturedHackathon[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchHackathons() {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('featured_hackathons')
-        .select('*')
-        .eq('is_featured', true)
-        .order('display_order')
-        .limit(4)
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await featuredHackathonsAPI.list()
 
-      if (data) {
-        setHackathons(data)
+        // Take only first 4 featured hackathons
+        const featured = response.featured_hackathons
+          .filter(h => h.is_featured)
+          .sort((a, b) => a.display_order - b.display_order)
+          .slice(0, 4)
+
+        setHackathons(featured)
+      } catch (err) {
+        console.error('Error fetching featured hackathons:', err)
+        setError('Failed to load hackathons')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchHackathons()
@@ -76,6 +73,19 @@ export default function HackathonsForYou() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-3xl font-bold text-slate-900">Hackathons for you</h2>
+        </div>
+        <Card className="p-6 bg-red-50 border-red-200">
+          <p className="text-red-800">{error}</p>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
@@ -91,7 +101,7 @@ export default function HackathonsForYou() {
       <div className="space-y-4">
         {hackathons.map((hackathon, index) => (
           <Card
-            key={hackathon.id}
+            key={hackathon.featured_id}
             className={`p-6 hover:shadow-lg transition-all cursor-pointer border-l-4 ${
               index === 1 ? 'border-l-teal-500 bg-gradient-to-r from-teal-50 to-transparent' : 'border-l-slate-200'
             }`}
@@ -99,7 +109,7 @@ export default function HackathonsForYou() {
             <div className="flex items-center gap-6">
               <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-900 shadow-md">
                 <Image
-                  src={hackathon.logo_url}
+                  src={hackathon.logo_url || '/placeholder-hackathon.png'}
                   alt={hackathon.title}
                   fill
                   className="object-cover"

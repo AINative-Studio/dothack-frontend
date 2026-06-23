@@ -3,18 +3,45 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
 
+// ---------------------------------------------------------------------------
+// Status badge variants (hackathon lifecycle states)
+// ---------------------------------------------------------------------------
 const badgeVariants = cva(
-  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center font-mono text-[9px] uppercase tracking-[0.04em] px-2 py-0.5 leading-none whitespace-nowrap',
   {
     variants: {
       variant: {
+        // Status badges
+        draft:
+          'bg-cream border-[1.5px] border-ink text-ink',
+        live:
+          'bg-accent border-[1.5px] border-accent text-white',
+        completed:
+          'bg-ink border-[1.5px] border-ink text-cream',
+        judging:
+          'bg-warning-bg border-[1.5px] border-ink text-ink',
+        upcoming:
+          'bg-cream-mid border-[1.5px] border-ink text-muted',
+
+        // Role badges
+        organizer:
+          'bg-ink border-[1.5px] border-ink text-cream',
+        builder:
+          'bg-accent border-[1.5px] border-accent text-white',
+        judge:
+          'bg-[#f0ebe0] border-[1.5px] border-muted text-muted',
+        mentor:
+          'bg-success border-[1.5px] border-ink text-ink',
+
+        // Generic / legacy aliases
         default:
-          'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
+          'bg-cream border-[1.5px] border-ink text-ink',
         secondary:
-          'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
+          'bg-cream-mid border-[1.5px] border-ink text-ink',
         destructive:
-          'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
-        outline: 'text-foreground',
+          'bg-danger border-[1.5px] border-danger text-white',
+        outline:
+          'bg-transparent border-[1.5px] border-ink text-ink',
       },
     },
     defaultVariants: {

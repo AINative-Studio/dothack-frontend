@@ -5,25 +5,37 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  // Base: sharp corners, uppercase, mono/archivo display, tight tracking, smooth transitions
+  'inline-flex items-center justify-center whitespace-nowrap font-archivo font-extrabold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-40 select-none',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        // Primary — orange fill
+        default:
+          'bg-accent text-white border-2 border-accent hover:bg-[#e03a14] hover:border-[#e03a14]',
+        // Dark — ink fill
+        dark:
+          'bg-ink text-cream border-2 border-ink hover:bg-[#2a2720] hover:border-[#2a2720]',
+        // Ghost / Outline — transparent with ink border
         outline:
-          'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+          'bg-transparent text-ink border-2 border-ink hover:bg-ink hover:text-cream',
+        // Ghost — no border, subtle hover
+        ghost:
+          'bg-transparent text-ink border-2 border-transparent hover:bg-cream-mid hover:border-cream-mid',
+        // Destructive — danger border + text, no fill
+        destructive:
+          'bg-transparent text-danger border-[1.5px] border-danger hover:bg-danger hover:text-white',
+        // Legacy aliases for compatibility with existing pages
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+          'bg-cream-mid text-ink border-2 border-ink hover:bg-cream-dark',
+        link: 'text-accent underline-offset-4 hover:underline border-2 border-transparent',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded-md px-3',
-        lg: 'h-11 rounded-md px-8',
-        icon: 'h-10 w-10',
+        default: 'h-11 px-6 py-3 text-sm',
+        sm: 'h-8 px-3 py-1.5 text-[10px] border-[1.5px]',
+        lg: 'h-13 px-8 py-4 text-base',
+        icon: 'h-10 w-10 text-sm',
+        chip: 'h-7 px-3 py-1 text-[10px] border-[1.5px] tracking-widest',
       },
     },
     defaultVariants: {

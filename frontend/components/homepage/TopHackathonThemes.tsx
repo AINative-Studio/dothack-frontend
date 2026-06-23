@@ -2,35 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { hackathonThemesAPI, HackathonTheme } from '@/lib/api/backend-client'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { ArrowRight } from 'lucide-react'
 
-interface Theme {
-  id: string
-  theme_name: string
-  hackathon_count: number
-  total_prizes: number
-  display_order: number
-}
-
 export default function TopHackathonThemes() {
-  const [themes, setThemes] = useState<Theme[]>([])
+  const [themes, setThemes] = useState<HackathonTheme[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchThemes() {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('hackathon_themes')
-        .select('*')
-        .order('display_order')
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await hackathonThemesAPI.list()
 
-      if (data) {
-        setThemes(data)
+        // Sort by display order
+        const sorted = response.themes.sort((a, b) => a.display_order - b.display_order)
+        setThemes(sorted)
+      } catch (err) {
+        console.error('Error fetching hackathon themes:', err)
+        setError('Failed to load themes')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchThemes()
@@ -69,6 +66,17 @@ export default function TopHackathonThemes() {
     )
   }
 
+  if (error) {
+    return (
+      <div>
+        <h2 className="text-3xl font-bold text-slate-900 mb-6">Top hackathon themes</h2>
+        <Card className="p-6 bg-red-50 border-red-200">
+          <p className="text-red-800">{error}</p>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div>
       <h2 className="text-3xl font-bold text-slate-900 mb-6">Top hackathon themes</h2>
@@ -86,7 +94,7 @@ export default function TopHackathonThemes() {
         <div className="divide-y">
           {themes.map((theme, index) => (
             <Link
-              key={theme.id}
+              key={theme.theme_id}
               href="/public-hackathons"
               className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-slate-50 transition-colors items-center group"
             >

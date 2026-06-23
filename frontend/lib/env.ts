@@ -31,7 +31,7 @@ export function getEnvironmentConfig(): EnvironmentConfig {
   const nodeEnv = process.env.NODE_ENV || 'development'
 
   return {
-    apiUrl: getEnvVar('NEXT_PUBLIC_API_URL', 'http://localhost:8000'),
+    apiUrl: getEnvVar('NEXT_PUBLIC_API_URL', 'http://localhost:8000/api/v1'),
     apiVersion: getEnvVar('NEXT_PUBLIC_API_VERSION', 'v1'),
     wsUrl: getOptionalEnvVar('NEXT_PUBLIC_WS_URL'),
     isDevelopment: nodeEnv === 'development',

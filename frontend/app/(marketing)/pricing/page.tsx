@@ -1,193 +1,241 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Check } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Check } from 'lucide-react'
+
+// ─── Pricing tiers ────────────────────────────────────────────────────────────
+const tiers = [
+  {
+    name: 'Free',
+    price: '$0',
+    period: '/month',
+    desc: 'Perfect for internal events',
+    highlight: false,
+    cta: { label: 'Get Started', href: '/hackathons', variant: 'outline' as const },
+    features: [
+      'Up to 50 participants',
+      'Unlimited teams',
+      'Basic judging',
+      '2 custom tracks',
+      'Leaderboard & CSV export',
+    ],
+  },
+  {
+    name: 'Team',
+    price: '$99',
+    period: '/month',
+    desc: 'For professional hackathons',
+    highlight: true,
+    cta: { label: 'Get Started', href: '/hackathons', variant: 'default' as const },
+    features: [
+      'Up to 500 participants',
+      'Unlimited teams',
+      'Advanced judging & rubrics',
+      'Unlimited tracks',
+      'Priority support',
+      'Custom branding',
+    ],
+    badge: 'Most Popular',
+  },
+  {
+    name: 'Enterprise',
+    price: 'Custom',
+    period: '',
+    desc: 'For large-scale events',
+    highlight: false,
+    cta: { label: 'Contact Sales', href: '/contact', variant: 'outline' as const },
+    features: [
+      'Unlimited participants',
+      'Unlimited everything',
+      'Dedicated support',
+      'On-premise deployment',
+      'SLA guarantee',
+      'Custom integrations',
+    ],
+  },
+]
 
 export default function PricingPage() {
   return (
-    <div className="py-20">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            Pricing
-          </h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Simple, transparent pricing for hackathons of all sizes
-          </p>
-          <div className="mt-6">
-            <Badge variant="secondary" className="text-sm bg-blue-100 text-blue-700 border-blue-200">
-              Pricing is placeholder (frontend demo only)
-            </Badge>
+    <div>
+      {/* Header */}
+      <section className="bg-cream border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16 md:py-20">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center border-[1.5px] border-ink px-3 py-1 mb-8">
+              <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink">
+                Pricing
+              </span>
+            </div>
+            <h1 className="font-archivo font-black text-5xl md:text-6xl uppercase leading-[1] tracking-[-0.03em] text-ink mb-5">
+              Simple, transparent pricing.
+            </h1>
+            <p className="font-sans text-[17px] leading-relaxed text-muted">
+              Hackathon operations for every scale — from a 50-person team sprint to a 5,000-builder public event.
+            </p>
+            <div className="mt-6 inline-flex items-center border-[1.5px] border-ink px-3 py-1">
+              <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted">
+                Pricing shown is placeholder (frontend demo only)
+              </span>
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          <Card className="relative border-2 hover:border-slate-300 hover:shadow-xl transition-all">
-            <CardHeader>
-              <CardTitle className="text-3xl font-bold">Free</CardTitle>
-              <CardDescription className="text-base">Perfect for internal events</CardDescription>
-              <div className="mt-4">
-                <span className="text-5xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">$0</span>
-                <span className="text-slate-600 text-lg">/month</span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Link href="/hackathons">
-                <Button className="w-full mb-6 border-2 hover:bg-slate-50 transition-all" variant="outline">
-                  Get Started
-                </Button>
-              </Link>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
+      {/* Pricing cards */}
+      <section className="bg-cream-dark border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16 md:py-24">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-2 border-ink">
+            {tiers.map((tier, i) => (
+              <div
+                key={tier.name}
+                className={`relative flex flex-col ${
+                  tier.highlight ? 'bg-ink' : 'bg-cream'
+                } ${i < tiers.length - 1 ? 'border-b-2 md:border-b-0 md:border-r-2 border-ink' : ''}`}
+              >
+                {/* Popular badge */}
+                {tier.badge && (
+                  <div className="absolute -top-px left-0 right-0 flex justify-center">
+                    <div className="bg-accent px-4 py-1">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-white">
+                        {tier.badge}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-sm text-slate-700">Up to 50 participants</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Unlimited teams</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Basic judging</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">2 custom tracks</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Leaderboard & CSV export</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
+                )}
 
-          <Card className="relative border-2 border-blue-500 shadow-xl hover:shadow-2xl transition-all scale-105">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-              <Badge className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg">Most Popular</Badge>
-            </div>
-            <CardHeader className="bg-gradient-to-br from-blue-50 to-cyan-50">
-              <CardTitle className="text-3xl font-bold">Team</CardTitle>
-              <CardDescription className="text-base">For professional hackathons</CardDescription>
-              <div className="mt-4">
-                <span className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">$99</span>
-                <span className="text-slate-600 text-lg">/month</span>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <Link href="/hackathons">
-                <Button className="w-full mb-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all">
-                  Get Started
-                </Button>
-              </Link>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
+                {/* Tier header */}
+                <div
+                  className={`px-6 pt-8 pb-6 border-b-2 ${
+                    tier.highlight ? 'border-[#2a2720]' : 'border-ink'
+                  }`}
+                >
+                  <h2
+                    className={`font-archivo font-black text-2xl uppercase tracking-[-0.02em] mb-1 ${
+                      tier.highlight ? 'text-cream' : 'text-ink'
+                    }`}
+                  >
+                    {tier.name}
+                  </h2>
+                  <p
+                    className={`font-sans text-sm mb-5 ${
+                      tier.highlight ? 'text-muted' : 'text-muted'
+                    }`}
+                  >
+                    {tier.desc}
+                  </p>
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className={`font-archivo font-black text-5xl leading-none tracking-[-0.04em] ${
+                        tier.highlight ? 'text-cream' : 'text-ink'
+                      }`}
+                    >
+                      {tier.price}
+                    </span>
+                    {tier.period && (
+                      <span className="font-sans text-sm text-muted">{tier.period}</span>
+                    )}
                   </div>
-                  <span className="text-sm text-slate-700">Up to 500 participants</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Unlimited teams</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Advanced judging & rubrics</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Unlimited tracks</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Priority support</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Custom branding</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
+                </div>
 
-          <Card className="relative border-2 hover:border-slate-300 hover:shadow-xl transition-all">
-            <CardHeader>
-              <CardTitle className="text-3xl font-bold">Enterprise</CardTitle>
-              <CardDescription className="text-base">For large-scale events</CardDescription>
-              <div className="mt-4">
-                <span className="text-5xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Custom</span>
+                {/* Body */}
+                <div className="px-6 py-6 flex flex-col flex-1">
+                  <Link href={tier.cta.href} className="block mb-6">
+                    <button
+                      className={`w-full inline-flex items-center justify-center font-archivo font-extrabold uppercase tracking-wider text-sm h-11 px-6 border-2 transition-colors ${
+                        tier.highlight
+                          ? 'bg-accent text-white border-accent hover:bg-[#e03a14] hover:border-[#e03a14]'
+                          : 'bg-transparent text-ink border-ink hover:bg-ink hover:text-cream'
+                      }`}
+                    >
+                      {tier.cta.label}
+                    </button>
+                  </Link>
+
+                  <ul className="space-y-3">
+                    {tier.features.map((f) => (
+                      <li key={f} className="flex items-start gap-3">
+                        <div
+                          className={`w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5 border ${
+                            tier.highlight ? 'border-[#2a2720] bg-[#2a2720]' : 'border-ink bg-cream-mid'
+                          }`}
+                        >
+                          <Check
+                            className={`h-2.5 w-2.5 ${tier.highlight ? 'text-cream' : 'text-ink'}`}
+                          />
+                        </div>
+                        <span
+                          className={`font-sans text-sm ${
+                            tier.highlight ? 'text-cream' : 'text-ink'
+                          }`}
+                        >
+                          {f}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Link href="/contact">
-                <Button className="w-full mb-6 border-2 hover:bg-slate-50 transition-all" variant="outline">
-                  Contact Sales
-                </Button>
-              </Link>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Unlimited participants</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Unlimited everything</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Dedicated support</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">On-premise deployment</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">SLA guarantee</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-700">Custom integrations</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* FAQ strip */}
+      <section className="bg-cream border-b-2 border-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16">
+          <div className="border-b-2 border-ink pb-6 mb-10">
+            <h2 className="font-archivo font-black text-3xl uppercase tracking-[-0.03em] text-ink">
+              Common Questions
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
+            {[
+              {
+                q: 'Can I upgrade or downgrade at any time?',
+                a: 'Yes. You can change your plan at any time. Upgrades take effect immediately; downgrades apply at the next billing cycle.',
+              },
+              {
+                q: 'Is there a free trial for the Team plan?',
+                a: 'Yes — all paid plans include a 14-day free trial. No credit card required to start.',
+              },
+              {
+                q: 'What counts as a participant?',
+                a: 'Any user registered in a hackathon — builders, judges, mentors, and organizers all count toward the participant limit.',
+              },
+              {
+                q: 'Do you offer non-profit or educational discounts?',
+                a: 'Yes. Contact our sales team for special pricing for non-profit organizations and academic institutions.',
+              },
+            ].map((item) => (
+              <div key={item.q} className="border-l-2 border-ink pl-5">
+                <h3 className="font-archivo font-bold text-sm uppercase tracking-wide text-ink mb-2">
+                  {item.q}
+                </h3>
+                <p className="font-sans text-sm leading-relaxed text-muted">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="bg-ink">
+        <div className="max-w-7xl mx-auto px-6 py-16 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <h3 className="font-archivo font-black text-2xl uppercase tracking-[-0.02em] text-cream mb-1">
+              Not sure which plan fits?
+            </h3>
+            <p className="font-sans text-sm text-muted">
+              Talk to our team — we will find the right fit for your event size and goals.
+            </p>
+          </div>
+          <Link href="/contact">
+            <Button size="lg" variant="default">
+              Talk to sales
+            </Button>
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }

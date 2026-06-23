@@ -1,41 +1,49 @@
-import { zeroDBClient, ZeroDBTableRow } from '@/lib/zerodb'
+import { hackathonsAPI } from './backend-client'
 import { validateUUID } from '@/lib/validation'
 import { handleAPIError, showErrorToast, APIError } from '@/lib/error-handling'
-
-export interface Hackathon extends ZeroDBTableRow {
-  hackathon_id: string
-  name: string
-  description: string
-  status: 'DRAFT' | 'LIVE' | 'CLOSED'
-  start_at: string
-  end_at: string
-  created_at: string
-}
+import type { Hackathon, HackathonStatus } from '@/lib/types'
 
 export interface CreateHackathonInput {
   name: string
-  description: string
-  status?: 'DRAFT' | 'LIVE' | 'CLOSED'
-  start_at: string
-  end_at: string
+  description?: string
+  organizer_id: string
+  start_date: string
+  end_date: string
+  location?: string
+  registration_deadline?: string
+  max_participants?: number
+  website_url?: string
+  logo_url?: string
+  is_online?: boolean
+  prizes?: Record<string, any>
+  rules?: string
+  status?: HackathonStatus
 }
 
 export interface UpdateHackathonInput {
   hackathon_id: string
   name?: string
   description?: string
-  status?: 'DRAFT' | 'LIVE' | 'CLOSED'
-  start_at?: string
-  end_at?: string
+  status?: HackathonStatus
+  start_date?: string
+  end_date?: string
+  location?: string
+  registration_deadline?: string
+  max_participants?: number
+  website_url?: string
+  logo_url?: string
+  is_online?: boolean
+  prizes?: Record<string, any>
+  rules?: string
 }
 
 export interface ListHackathonsParams {
-  status?: 'DRAFT' | 'LIVE' | 'CLOSED'
+  status?: HackathonStatus
   limit?: number
-  offset?: number
+  skip?: number
 }
 
-const TABLE_NAME = 'hackathons'
+export { Hackathon }
 
 export async function createHackathon(input: CreateHackathonInput): Promise<Hackathon> {
   try {
@@ -43,16 +51,12 @@ export async function createHackathon(input: CreateHackathonInput): Promise<Hack
       throw new APIError('Hackathon name is required')
     }
 
-    if (!input.description || input.description.trim().length === 0) {
-      throw new APIError('Hackathon description is required')
-    }
-
-    if (!input.start_at || !input.end_at) {
+    if (!input.start_date || !input.end_date) {
       throw new APIError('Start and end dates are required')
     }
 
-    const startDate = new Date(input.start_at)
-    const endDate = new Date(input.end_at)
+    const startDate = new Date(input.start_date)
+    const endDate = new Date(input.end_date)
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       throw new APIError('Invalid date format')
@@ -62,26 +66,27 @@ export async function createHackathon(input: CreateHackathonInput): Promise<Hack
       throw new APIError('Start date must be before end date')
     }
 
-    const hackathon: Hackathon = {
-      hackathon_id: crypto.randomUUID(),
+    const hackathon = await hackathonsAPI.create({
       name: input.name.trim(),
-      description: input.description.trim(),
-      status: input.status || 'DRAFT',
-      start_at: input.start_at,
-      end_at: input.end_at,
-      created_at: new Date().toISOString()
-    }
-
-    const response = await zeroDBClient.insertRows<Hackathon>(TABLE_NAME, [hackathon])
-
-    if (!response.success || !response.row_ids || response.row_ids.length === 0) {
-      throw new APIError(response.error || 'Failed to create hackathon')
-    }
+      description: input.description?.trim(),
+      organizer_id: input.organizer_id,
+      start_date: input.start_date,
+      end_date: input.end_date,
+      location: input.location,
+      registration_deadline: input.registration_deadline,
+      max_participants: input.max_participants,
+      website_url: input.website_url,
+      logo_url: input.logo_url,
+      is_online: input.is_online,
+      prizes: input.prizes,
+      rules: input.rules,
+      status: input.status || 'draft',
+    })
 
     return hackathon
   } catch (error: any) {
     const apiError = handleAPIError(error, {
-      endpoint: `/database/tables/${TABLE_NAME}/rows`,
+      endpoint: '/hackathons',
       method: 'POST',
       payload: input
     })
@@ -92,27 +97,16 @@ export async function createHackathon(input: CreateHackathonInput): Promise<Hack
 
 export async function listHackathons(params: ListHackathonsParams = {}): Promise<Hackathon[]> {
   try {
-    const filter: Record<string, any> = {}
-
-    if (params.status) {
-      filter.status = params.status
-    }
-
-    const response = await zeroDBClient.queryRows<Hackathon>(TABLE_NAME, {
-      filter: Object.keys(filter).length > 0 ? filter : undefined,
+    const response = await hackathonsAPI.list({
+      skip: params.skip,
       limit: params.limit,
-      offset: params.offset,
-      sort: { created_at: -1 }
+      status: params.status
     })
 
-    if (!response.success) {
-      throw new APIError(response.error || 'Failed to fetch hackathons')
-    }
-
-    return response.rows || []
+    return response.hackathons
   } catch (error: any) {
     const apiError = handleAPIError(error, {
-      endpoint: `/database/tables/${TABLE_NAME}/rows`,
+      endpoint: '/hackathons',
       method: 'GET'
     })
     showErrorToast(apiError, 'Failed to fetch hackathons')
@@ -124,19 +118,16 @@ export async function getHackathonById(hackathonId: string): Promise<Hackathon |
   try {
     validateUUID(hackathonId, 'hackathon_id')
 
-    const response = await zeroDBClient.queryRows<Hackathon>(TABLE_NAME, {
-      filter: { hackathon_id: hackathonId },
-      limit: 1
-    })
-
-    if (!response.success) {
-      throw new APIError(response.error || 'Failed to fetch hackathon')
+    const hackathon = await hackathonsAPI.get(hackathonId)
+    return hackathon
+  } catch (error: any) {
+    // If 404, return null
+    if (error.status === 404) {
+      return null
     }
 
-    return response.rows && response.rows.length > 0 ? response.rows[0] : null
-  } catch (error: any) {
     const apiError = handleAPIError(error, {
-      endpoint: `/database/tables/${TABLE_NAME}/rows`,
+      endpoint: `/hackathons/${hackathonId}`,
       method: 'GET'
     })
     showErrorToast(apiError, 'Failed to fetch hackathon')
@@ -144,7 +135,7 @@ export async function getHackathonById(hackathonId: string): Promise<Hackathon |
   }
 }
 
-export async function getHackathonsByStatus(status: 'DRAFT' | 'LIVE' | 'CLOSED'): Promise<Hackathon[]> {
+export async function getHackathonsByStatus(status: HackathonStatus): Promise<Hackathon[]> {
   return listHackathons({ status })
 }
 

@@ -24,7 +24,8 @@ export default function JudgingPage({
   const { data: hackathon, isLoading: hackathonLoading } = useHackathonById(params.hackathonId)
   const { data: projects = [], isLoading: projectsLoading } = useProjectsByHackathon(params.hackathonId)
   const { data: submissions = [], isLoading: submissionsLoading } = useSubmissionsByHackathon(params.hackathonId)
-  const { data: rubrics = [], isLoading: rubricsLoading } = useRubricByHackathon(params.hackathonId)
+  const { data: rubricsData, isLoading: rubricsLoading } = useRubricByHackathon(params.hackathonId)
+  const rubrics = Array.isArray(rubricsData) ? rubricsData : rubricsData ? [rubricsData] : []
   const { data: scores = [], isLoading: scoresLoading } = useScoresByHackathon(params.hackathonId)
   const { data: teams = [], isLoading: teamsLoading } = useTeamsByHackathon(params.hackathonId)
 

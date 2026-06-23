@@ -1,167 +1,323 @@
 "use client"
 
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { useHackathons } from '@/hooks/use-hackathons'
-import { useTeams } from '@/hooks/use-teams'
-import { useProjects } from '@/hooks/use-projects'
-import { useSubmissions } from '@/hooks/use-submissions'
-import { useHackathonParticipants } from '@/hooks/use-participants'
-import { Calendar, ArrowRight, Users, FolderKanban, FileCheck, Loader2 } from 'lucide-react'
+import { useAttendeeDashboard, useHackathons } from '@/hooks/use-api'
+
+function StatusBadge({ status }: { status: string }) {
+  const upper = status.toUpperCase()
+  if (upper === 'ACTIVE' || upper === 'LIVE') {
+    return (
+      <span className="bg-accent text-white font-mono text-[9px] uppercase tracking-widest px-2 py-0.5">
+        LIVE
+      </span>
+    )
+  }
+  if (upper === 'DRAFT') {
+    return (
+      <span className="bg-cream-mid text-ink font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 border border-ink">
+        DRAFT
+      </span>
+    )
+  }
+  return (
+    <span className="bg-ink text-cream font-mono text-[9px] uppercase tracking-widest px-2 py-0.5">
+      {upper}
+    </span>
+  )
+}
 
 export function BuilderDashboard() {
   const router = useRouter()
-  const { data: hackathons = [], isLoading: hackathonsLoading } = useHackathons()
-  const { data: teams = [], isLoading: teamsLoading } = useTeams()
-  const { data: projects = [], isLoading: projectsLoading } = useProjects()
-  const { data: submissions = [], isLoading: submissionsLoading } = useSubmissions()
-  const { data: allParticipants = [], isLoading: participantsLoading } = useHackathonParticipants()
+  const { data: dashData, isLoading: dashLoading } = useAttendeeDashboard()
+  const { data: hackathonsResp, isLoading: hackLoading } = useHackathons()
 
-  if (hackathonsLoading || teamsLoading || projectsLoading || submissionsLoading || participantsLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        </div>
-      </div>
-    )
-  }
+  const isLoading = dashLoading || hackLoading
+  const hackathons = hackathonsResp?.hackathons ?? []
 
-  const liveHackathons = hackathons.filter(h => h.status === 'LIVE')
-
-  const myTeams = teams.length
-  const myProjects = projects.length
-  const mySubmissions = submissions.length
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'DRAFT': return 'bg-slate-100 text-slate-800 border-slate-300'
-      case 'LIVE': return 'bg-emerald-100 text-emerald-800 border-emerald-300'
-      case 'CLOSED': return 'bg-rose-100 text-rose-800 border-rose-300'
-      default: return 'bg-slate-100 text-slate-800 border-slate-300'
-    }
-  }
+  const stats = dashData?.stats
+  const activeTeam = dashData?.active_team
+  const currentSubmission = dashData?.current_submission
+  const nextDeadline = dashData?.next_deadline
+  const registrations = dashData?.registrations ?? []
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="p-8 max-w-[1360px]">
+      {/* Title */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-          Builder Dashboard
+        <h1 className="font-archivo font-black text-[38px] uppercase leading-none tracking-tight text-ink">
+          Builder<br />Dashboard
         </h1>
-        <p className="text-slate-600">Your hackathon journey</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Active Hackathons</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-              <Calendar className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{liveHackathons.length}</div>
-            <p className="text-xs text-slate-600 mt-1">Happening now</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">My Teams</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-              <Users className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{myTeams}</div>
-            <p className="text-xs text-slate-600 mt-1">Joined teams</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">My Projects</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <FolderKanban className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{myProjects}</div>
-            <p className="text-xs text-slate-600 mt-1">In progress</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Submissions</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-              <FileCheck className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{mySubmissions}</div>
-            <p className="text-xs text-slate-600 mt-1">Completed</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border-2 shadow-lg mb-8">
-        <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50">
-          <CardTitle className="text-2xl">Available Hackathons</CardTitle>
-          <CardDescription>Browse and join hackathons to start building</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {hackathons.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-                <Calendar className="h-8 w-8 text-slate-400" />
+      {/* Stats grid */}
+      <div className="border-2 border-ink mb-8">
+        <div className="grid grid-cols-4">
+          {[
+            { label: 'Registered', value: isLoading ? '—' : (stats?.registered ?? 0) },
+            { label: 'Submissions', value: isLoading ? '—' : (stats?.submissions ?? 0) },
+            { label: 'Wins', value: isLoading ? '—' : (stats?.wins ?? 0) },
+            { label: 'Credentials', value: isLoading ? '—' : (stats?.credentials ?? 0) },
+          ].map((stat, i) => (
+            <div
+              key={stat.label}
+              className={['px-6 py-6', i < 3 ? 'border-r-2 border-ink' : ''].join(' ')}
+            >
+              <div className="font-archivo font-black text-[40px] leading-none text-ink mb-2">
+                {stat.value}
               </div>
-              <p className="text-slate-600 mb-2 text-lg">No hackathons available</p>
-              <p className="text-sm text-slate-500">Check back soon for new events</p>
+              <div className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Next deadline banner */}
+      {nextDeadline && (
+        <div className="border-2 border-accent bg-[#fff3ef] px-6 py-4 mb-8 flex items-center justify-between">
+          <div>
+            <p className="font-mono text-[9.5px] uppercase tracking-widest text-accent mb-0.5">
+              Upcoming Deadline
+            </p>
+            <p className="font-archivo font-black text-[15px] text-ink uppercase">
+              {nextDeadline.hackathon} — {nextDeadline.label}
+            </p>
+          </div>
+          <div className="font-mono text-[11px] text-muted">
+            {new Date(nextDeadline.at).toLocaleString()}
+          </div>
+        </div>
+      )}
+
+      {/* Two-column: registrations + team/submission */}
+      <div className="grid mb-8" style={{ gridTemplateColumns: '1.4fr 1fr', gap: 0 }}>
+        {/* My Registrations */}
+        <div className="border-2 border-ink border-r-0">
+          <div className="bg-ink px-5 py-3">
+            <span className="font-archivo font-black text-[13px] uppercase text-cream tracking-tight">
+              My Registrations
+            </span>
+          </div>
+
+          {isLoading ? (
+            <div className="px-5 py-10 text-center">
+              <p className="font-mono text-[11px] uppercase text-muted tracking-widest">
+                Loading...
+              </p>
+            </div>
+          ) : registrations.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="font-mono text-[11px] uppercase text-muted tracking-widest mb-3">
+                No registrations yet
+              </p>
+              <p className="text-[12px] text-muted">
+                Browse available hackathons below to get started
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {hackathons.map((hackathon) => (
-                <div key={hackathon.hackathon_id} className="p-4 sm:p-6 border-2 rounded-lg hover:shadow-md transition-all">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <h3 className="text-lg sm:text-xl font-bold text-slate-900">{hackathon.name}</h3>
-                        <Badge className={`${getStatusColor(hackathon.status)} border font-semibold`}>
-                          {hackathon.status}
-                        </Badge>
-                      </div>
-                      <p className="text-slate-600 mb-3">{hackathon.description}</p>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(hackathon.start_at).toLocaleDateString()} - {new Date(hackathon.end_at).toLocaleDateString()}
+            <div>
+              {registrations.map((reg, idx) => (
+                <div
+                  key={reg.hackathon_id}
+                  className={[
+                    'px-5 py-4 flex items-center justify-between',
+                    idx < registrations.length - 1 ? 'border-b border-border-light' : '',
+                  ].join(' ')}
+                >
+                  <div>
+                    <p className="font-medium text-[13px] text-ink mb-1">{reg.name}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                        {reg.role}
+                      </span>
+                      {reg.team && (
+                        <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                          · {reg.team}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-4 w-4" />
-                          {allParticipants.filter(hp => hp.hackathon_id === hackathon.hackathon_id).length} participants
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FolderKanban className="h-4 w-4" />
-                          {projects.filter(p => p.hackathon_id === hackathon.hackathon_id).length} projects
-                        </span>
-                      </div>
+                      )}
                     </div>
-                    <Button
-                      onClick={() => router.push(`/hackathons/${hackathon.hackathon_id}`)}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md hover:shadow-lg transition-all w-full sm:w-auto"
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={reg.status} />
+                    <button
+                      onClick={() => router.push(`/hackathons/${reg.hackathon_id}`)}
+                      className="font-mono text-[10px] uppercase tracking-widest text-accent hover:underline"
                     >
-                      View Details <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
+                      View →
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Right: Active team + submission */}
+        <div className="border-2 border-ink flex flex-col">
+          {/* Active Team */}
+          <div>
+            <div className="bg-ink px-5 py-3">
+              <span className="font-archivo font-black text-[13px] uppercase text-cream tracking-tight">
+                Active Team
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="px-5 py-6">
+                <div className="h-3 bg-cream-mid animate-pulse w-1/2 mb-2" />
+                <div className="h-2 bg-cream-mid animate-pulse w-1/3" />
+              </div>
+            ) : activeTeam ? (
+              <div className="px-5 py-5 border-b border-border-light">
+                <p className="font-archivo font-black text-[16px] uppercase text-ink mb-1">
+                  {activeTeam.name}
+                </p>
+                <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted mb-4">
+                  {activeTeam.hackathon} · {activeTeam.role}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {activeTeam.members.map((m) => (
+                    <div
+                      key={m.handle}
+                      className="flex items-center gap-2 border border-border-light px-2.5 py-1.5"
+                    >
+                      <div className="w-5 h-5 bg-ink text-cream flex items-center justify-center font-archivo font-black text-[8px] shrink-0">
+                        {m.initials}
+                      </div>
+                      <span className="font-mono text-[10px] text-ink">{m.name}</span>
+                    </div>
+                  ))}
+                  {activeTeam.open_slots > 0 && (
+                    <div className="flex items-center gap-1.5 border border-dashed border-muted px-2.5 py-1.5">
+                      <span className="font-mono text-[9.5px] uppercase text-muted tracking-widest">
+                        +{activeTeam.open_slots} open
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="px-5 py-5 border-b border-border-light">
+                <p className="font-mono text-[11px] uppercase text-muted tracking-widest">
+                  No active team
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Current Submission */}
+          <div className="flex-1">
+            <div className="bg-cream-dark border-t-0 px-5 py-2.5 border-b border-border-light">
+              <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                Current Submission
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="px-5 py-5">
+                <div className="h-3 bg-cream-mid animate-pulse w-2/3 mb-2" />
+                <div className="h-2 bg-cream-mid animate-pulse w-1/2" />
+              </div>
+            ) : currentSubmission ? (
+              <div className="px-5 py-5">
+                <p className="font-archivo font-black text-[14px] uppercase text-ink mb-1">
+                  {currentSubmission.project_name}
+                </p>
+                <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted mb-4">
+                  {currentSubmission.track} · {currentSubmission.hackathon}
+                </p>
+                <StatusBadge status={currentSubmission.status} />
+                <div className="mt-4 space-y-1.5">
+                  {currentSubmission.checklist.slice(0, 5).map(([label, done]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span
+                        className={[
+                          'w-3 h-3 border flex items-center justify-center text-[8px] shrink-0',
+                          done ? 'bg-accent border-accent text-white' : 'border-ink',
+                        ].join(' ')}
+                      >
+                        {done ? '✓' : ''}
+                      </span>
+                      <span
+                        className={[
+                          'font-mono text-[10px]',
+                          done ? 'text-muted line-through' : 'text-ink',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="px-5 py-5">
+                <p className="font-mono text-[11px] uppercase text-muted tracking-widest">
+                  No submission yet
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Available Hackathons */}
+      <div className="border-2 border-ink">
+        <div className="bg-ink px-5 py-3 flex items-center justify-between">
+          <span className="font-archivo font-black text-[13px] uppercase text-cream tracking-tight">
+            Available Hackathons
+          </span>
+          <span className="font-mono text-[9px] uppercase text-muted-light tracking-widest">
+            {hackathons.length} events
+          </span>
+        </div>
+
+        {isLoading ? (
+          <div className="px-5 py-10 text-center">
+            <p className="font-mono text-[11px] uppercase text-muted tracking-widest">
+              Loading...
+            </p>
+          </div>
+        ) : hackathons.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <p className="font-mono text-[11px] uppercase text-muted tracking-widest">
+              No hackathons available — check back soon
+            </p>
+          </div>
+        ) : (
+          <div>
+            {hackathons.map((h, idx) => (
+              <div
+                key={h.hackathon_id}
+                className={[
+                  'px-6 py-5 flex items-center justify-between',
+                  idx < hackathons.length - 1 ? 'border-b border-border-light' : '',
+                ].join(' ')}
+              >
+                <div className="min-w-0 flex-1 pr-6">
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <h3 className="font-archivo font-black text-[15px] uppercase text-ink">
+                      {h.name}
+                    </h3>
+                    <StatusBadge status={h.status} />
+                  </div>
+                  <p className="text-[12px] text-muted mb-2 truncate">{h.description}</p>
+                  <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                    {new Date(h.start_date).toLocaleDateString()} –{' '}
+                    {new Date(h.end_date).toLocaleDateString()}
+                    {h.is_online && ' · Online'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => router.push(`/hackathons/${h.hackathon_id}`)}
+                  className="bg-ink text-cream font-archivo font-bold text-[11px] uppercase tracking-wide px-4 py-2 hover:bg-accent transition-colors shrink-0"
+                >
+                  View →
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -4,11 +4,27 @@ import type { NextRequest } from 'next/server'
 /**
  * Next.js Middleware for Route Protection
  *
- * This middleware runs on every request and protects routes based on
- * authentication status.
+ * Runs on every matched request and enforces authentication rules:
+ *
+ *  - Marketing / public pages are always accessible.
+ *  - All /hackathons/* routes, /profile, /settings, and /api-settings
+ *    require a valid auth token (read from the `dothack_access_token` cookie
+ *    or the Authorization header).
+ *  - Unauthenticated visitors are redirected to /login with the original
+ *    path preserved as the `redirect` query parameter.
+ *  - Role checks (organizer, judge) are deferred to client-side ProtectedRoute
+ *    components because decoding a JWT inside the Edge runtime would require
+ *    bringing in a crypto dependency.
  */
 
-// Public routes that don't require authentication
+// ---------------------------------------------------------------------------
+// Route lists
+// ---------------------------------------------------------------------------
+
+/**
+ * Public (marketing) routes that never require authentication.
+ * Prefix matching is used for all entries except the root "/".
+ */
 const PUBLIC_ROUTES = [
   '/',
   '/login',
@@ -20,25 +36,28 @@ const PUBLIC_ROUTES = [
   '/privacy',
   '/terms',
   '/public-hackathons',
+  '/internal-hackathons',
 ]
 
-// Routes that require authentication
+/**
+ * Route prefixes that require a valid auth token.
+ * /hackathons/* is intentionally included — the public hackathon listing
+ * page lives at /public-hackathons (no auth required).
+ */
 const PROTECTED_ROUTES = [
   '/hackathons',
   '/profile',
   '/settings',
-]
-
-// Routes that require specific roles (organizer)
-const ORGANIZER_ROUTES = [
   '/api-settings',
 ]
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(route => {
-    if (route === '/') {
-      return pathname === '/'
-    }
+    if (route === '/') return pathname === '/'
     return pathname.startsWith(route)
   })
 }
@@ -47,30 +66,39 @@ function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_ROUTES.some(route => pathname.startsWith(route))
 }
 
-function requiresOrganizer(pathname: string): boolean {
-  return ORGANIZER_ROUTES.some(route => pathname.startsWith(route))
+/**
+ * Resolve the auth token from either the dedicated cookie set by the auth
+ * flow (`dothack_access_token`) or from the Authorization header as a
+ * fallback for programmatic clients.
+ *
+ * Note: localStorage is not accessible in Edge middleware.  The token must
+ * be mirrored to a cookie (HttpOnly-optional) during the login flow for
+ * server-side route protection to work.
+ */
+function resolveToken(request: NextRequest): string | undefined {
+  // Primary: dedicated DotHack cookie
+  const cookie = request.cookies.get('dothack_access_token')?.value
+  if (cookie) return cookie
+
+  // Secondary: legacy generic cookie used by the existing auth flow
+  const legacyCookie = request.cookies.get('auth_token')?.value
+  if (legacyCookie) return legacyCookie
+
+  // Tertiary: Authorization header (API / programmatic access)
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7)
+
+  return undefined
 }
 
-function requiresJudge(pathname: string): boolean {
-  // Check if path matches /hackathons/[id]/judging
-  return /^\/hackathons\/[^/]+\/judging/.test(pathname)
-}
-
-function requiresOrganizerForHackathon(pathname: string): boolean {
-  // Check if path matches organizer-only routes for specific hackathons
-  const organizerPatterns = [
-    /^\/hackathons\/[^/]+\/setup/,
-    /^\/hackathons\/[^/]+\/participants/,
-    /^\/hackathons\/[^/]+\/prizes/,
-  ]
-
-  return organizerPatterns.some(pattern => pattern.test(pathname))
-}
+// ---------------------------------------------------------------------------
+// Middleware
+// ---------------------------------------------------------------------------
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow static files and API routes
+  // Pass through Next.js internals, static assets, and Next API routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -80,25 +108,25 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check if user has auth token
-  const token = request.cookies.get('auth_token')?.value ||
-                request.headers.get('authorization')?.replace('Bearer ', '')
-
-  // Allow public routes
+  // Always allow public / marketing pages
   if (isPublicRoute(pathname)) {
     return NextResponse.next()
   }
 
-  // Redirect to login if not authenticated and accessing protected route
-  if (!token && (isProtectedRoute(pathname) || requiresOrganizer(pathname) || requiresJudge(pathname) || requiresOrganizerForHackathon(pathname))) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+  // Enforce auth on all other routes that match PROTECTED_ROUTES
+  if (isProtectedRoute(pathname)) {
+    const token = resolveToken(request)
+
+    if (!token) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
-  // For role-based routes, we'll check roles on the client side
-  // since we can't easily decode JWT in edge middleware without crypto libraries
-  // The client-side ProtectedRoute component will handle role checks
+  // Role-based access (organizer/judge sub-routes) is enforced client-side
+  // via the ProtectedRoute component — the Edge runtime cannot safely decode
+  // JWTs without a crypto dependency.
 
   return NextResponse.next()
 }

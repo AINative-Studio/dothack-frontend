@@ -3,103 +3,165 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Code as Code2, Settings, Users, UsersRound, FolderKanban, FileCheck, Gavel, Trophy, Award, Key } from 'lucide-react'
-import { UserRole } from '@/lib/types'
+import { useAuth } from '@/hooks/use-auth'
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  // TODO: Replace with proper auth context when available
-  const [currentRole, setCurrentRole] = useState<UserRole>('ORGANIZER')
+const NAV_SECTIONS = [
+  {
+    label: 'OPERATE',
+    items: [
+      { href: '/hackathons', label: 'Dashboard' },
+      { href: '/hackathons', label: 'Hackathons', badge: null },
+      { href: '/hackathons', label: 'Participants' },
+      { href: '/hackathons', label: 'Submissions' },
+      { href: '/hackathons', label: 'Judging', badge: 3 },
+      { href: '/hackathons', label: 'Leaderboard' },
+      { href: '/hackathons', label: 'Prizes' },
+    ],
+  },
+  {
+    label: 'INTELLIGENCE',
+    items: [
+      { href: '/hackathons', label: 'AI Recommendations', indicator: true },
+      { href: '/hackathons', label: 'Semantic Search', indicator: true },
+    ],
+  },
+  {
+    label: 'CONFIGURE',
+    items: [
+      { href: '/api-settings', label: 'API Keys' },
+      { href: '/hackathons', label: 'Payments' },
+    ],
+  },
+]
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { user } = useAuth()
+  const [searchValue, setSearchValue] = useState('')
 
-  const hackathonMatch = pathname.match(/\/hackathons\/([^\/]+)/)
-  const hackathonId = hackathonMatch ? hackathonMatch[1] : null
+  const userInitials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : 'OR'
 
-  const navLinks = [
-    { href: '/hackathons', label: 'Hackathons', icon: Code2, roles: ['ORGANIZER', 'BUILDER', 'JUDGE'] },
-    { href: '/api-settings', label: 'API', icon: Key, roles: ['ORGANIZER'] },
-  ]
-
-  const hackathonLinks = hackathonId ? [
-    { href: `/hackathons/${hackathonId}/setup`, label: 'Setup', icon: Settings, roles: ['ORGANIZER'] },
-    { href: `/hackathons/${hackathonId}/participants`, label: 'Participants', icon: Users, roles: ['ORGANIZER'] },
-    { href: `/hackathons/${hackathonId}/teams`, label: 'Teams', icon: UsersRound, roles: ['ORGANIZER', 'BUILDER'] },
-    { href: `/hackathons/${hackathonId}/projects`, label: 'Projects', icon: FolderKanban, roles: ['ORGANIZER', 'BUILDER'] },
-    { href: `/hackathons/${hackathonId}/submissions`, label: 'Submissions', icon: FileCheck, roles: ['ORGANIZER', 'BUILDER', 'JUDGE'] },
-    { href: `/hackathons/${hackathonId}/judging`, label: 'Judging', icon: Gavel, roles: ['ORGANIZER', 'JUDGE'] },
-    { href: `/hackathons/${hackathonId}/leaderboard`, label: 'Leaderboard', icon: Trophy, roles: ['ORGANIZER', 'BUILDER', 'JUDGE'] },
-    { href: `/hackathons/${hackathonId}/prizes`, label: 'Prizes', icon: Award, roles: ['ORGANIZER'] },
-  ] : []
-
-  const visibleLinks = [...navLinks, ...hackathonLinks].filter(link =>
-    link.roles.includes(currentRole)
-  )
+  const userName = user?.email ?? 'organizer@dothack.io'
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur-lg shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/hackathons" className="flex items-center gap-2 font-bold text-xl group">
-              <div className="bg-gradient-to-br from-blue-600 to-cyan-600 p-1.5 rounded-lg group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
-                <Code2 className="h-5 w-5 text-white" />
+    <div className="min-h-screen flex bg-cream">
+      {/* Sidebar */}
+      <aside
+        className="flex flex-col shrink-0 bg-cream-dark border-r-2 border-ink"
+        style={{ width: 236 }}
+      >
+        {/* Logo */}
+        <div className="px-5 py-5 border-b-2 border-ink">
+          <Link href="/hackathons">
+            <span className="font-archivo font-black text-[18px] uppercase tracking-tight text-ink">
+              DotHack
+            </span>
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.label} className="mb-5">
+              <div className="px-5 mb-2">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
+                  {section.label}
+                </span>
               </div>
-              <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                DotHack
-              </span>
-            </Link>
-
-            <div className="flex items-center gap-6">
-              <nav className="hidden md:flex items-center gap-1">
-                {visibleLinks.map((link) => {
-                  const Icon = link.icon
-                  const isActive = pathname === link.href
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg transition-all ${
-                        isActive
-                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
-                          : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {link.label}
-                    </Link>
-                  )
-                })}
-              </nav>
-
-              <Select
-                value={currentRole}
-                onValueChange={(value) => setCurrentRole(value as UserRole)}
-              >
-                <SelectTrigger className="w-[140px] border-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ORGANIZER">Organizer</SelectItem>
-                  <SelectItem value="BUILDER">Builder</SelectItem>
-                  <SelectItem value="JUDGE">Judge</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Link href="/">
-                <Button variant="outline" size="sm" className="border-2">
-                  Marketing
-                </Button>
-              </Link>
+              {section.items.map((item) => {
+                const isActive = pathname === item.href && item.label === 'Dashboard'
+                return (
+                  <Link
+                    key={`${section.label}-${item.label}`}
+                    href={item.href}
+                    className={[
+                      'flex items-center justify-between px-5 py-2 text-[13px] font-medium transition-colors relative',
+                      isActive
+                        ? 'bg-[#fff3ef] text-ink'
+                        : 'text-ink hover:bg-cream-mid',
+                    ].join(' ')}
+                  >
+                    {/* Active left border */}
+                    {isActive && (
+                      <span
+                        className="absolute left-0 top-0 h-full bg-accent"
+                        style={{ width: 4 }}
+                      />
+                    )}
+                    <span className={isActive ? 'pl-1' : ''}>{item.label}</span>
+                    <span className="flex items-center gap-1.5">
+                      {'indicator' in item && item.indicator && (
+                        <span
+                          className="w-2 h-2 bg-accent shrink-0"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {'badge' in item && item.badge ? (
+                        <span className="bg-accent text-white font-mono text-[9px] px-1.5 py-0.5 leading-none">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </span>
+                  </Link>
+                )
+              })}
             </div>
+          ))}
+        </nav>
+
+        {/* User profile */}
+        <div className="border-t-2 border-ink px-5 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 bg-ink text-cream flex items-center justify-center font-archivo font-black text-[11px] shrink-0">
+            {userInitials}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold text-ink truncate">{userName}</p>
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted">
+              Organizer
+            </p>
           </div>
         </div>
-      </header>
-      <main className="flex-1">{children}</main>
+      </aside>
+
+      {/* Main content area */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Top bar */}
+        <header className="flex items-center gap-4 px-7 py-3.5 border-b-2 border-ink bg-cream-dark shrink-0">
+          {/* Search */}
+          <div className="flex-1 max-w-md relative">
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder="SEARCH HACKATHONS, TEAMS, SUBMISSIONS..."
+              className="w-full bg-cream border-2 border-ink px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-ink placeholder:text-muted outline-none focus:border-accent transition-colors"
+            />
+          </div>
+
+          {/* Live indicator */}
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2.5 h-2.5 bg-accent rounded-full animate-dh-pulse shrink-0"
+              aria-hidden="true"
+            />
+            <span className="font-mono text-[9px] uppercase tracking-widest text-muted">
+              Live
+            </span>
+          </div>
+
+          {/* Create button */}
+          <Link href="/hackathons">
+            <button className="bg-accent text-white font-archivo font-bold text-[12px] uppercase tracking-wide px-4 py-2 hover:bg-danger transition-colors">
+              + Create
+            </button>
+          </Link>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-auto">{children}</main>
+      </div>
     </div>
   )
 }

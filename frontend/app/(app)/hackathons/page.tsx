@@ -1,26 +1,24 @@
 "use client"
 
+import { useAuth } from '@/hooks/use-auth'
 import { OrganizerDashboard } from './components/OrganizerDashboard'
 import { BuilderDashboard } from './components/BuilderDashboard'
 import { JudgeDashboard } from './components/JudgeDashboard'
 
 export default function HackathonsPage() {
-  // TODO: Replace with proper auth context when available
-  // For now, default to OrganizerDashboard
-  // Role-based routing will be implemented when auth is integrated
-  const currentRole = 'ORGANIZER' // This should come from auth context
+  const { user } = useAuth()
 
-  if (currentRole === 'ORGANIZER') {
-    return <OrganizerDashboard />
-  }
+  // Role-based dashboard routing driven by auth context
+  const role = (user as any)?.role ?? 'ORGANIZER'
 
-  if (currentRole === 'BUILDER') {
+  if (role === 'BUILDER') {
     return <BuilderDashboard />
   }
 
-  if (currentRole === 'JUDGE') {
+  if (role === 'JUDGE') {
     return <JudgeDashboard />
   }
 
+  // Default to organizer dashboard
   return <OrganizerDashboard />
 }

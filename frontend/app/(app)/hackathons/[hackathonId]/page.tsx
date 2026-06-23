@@ -1,244 +1,300 @@
 "use client"
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { useHackathonById } from '@/hooks/use-hackathons'
-import { useParticipantsByHackathon } from '@/hooks/use-participants'
-import { useTeamsByHackathon } from '@/hooks/use-teams'
-import { useProjectsByHackathon } from '@/hooks/use-projects'
-import { useSubmissionsByHackathon } from '@/hooks/use-submissions'
-import { usePrizesByHackathon } from '@/hooks/use-prizes'
-import { Settings, Users, UsersRound, FolderKanban, FileCheck, Gavel, Trophy, Loader2 } from 'lucide-react'
+import { useHackathon, useHackathonOverview, useParticipants, usePrizes } from '@/hooks/use-api'
 
-export default function HackathonOverviewPage({
+// ---------------------------------------------------------------------------
+// Status badge
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ status }: { status: string }) {
+  const upper = status.toUpperCase()
+  if (upper === 'ACTIVE' || upper === 'LIVE') {
+    return (
+      <span className="bg-accent text-white font-mono text-[10px] uppercase tracking-widest px-3 py-1">
+        LIVE
+      </span>
+    )
+  }
+  if (upper === 'DRAFT') {
+    return (
+      <span className="bg-cream-mid text-ink font-mono text-[10px] uppercase tracking-widest px-3 py-1 border-2 border-ink">
+        DRAFT
+      </span>
+    )
+  }
+  if (upper === 'JUDGING') {
+    return (
+      <span className="bg-warning-bg text-warning font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-warning">
+        JUDGING
+      </span>
+    )
+  }
+  return (
+    <span className="bg-ink text-cream font-mono text-[10px] uppercase tracking-widest px-3 py-1">
+      {upper}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tab definitions
+// ---------------------------------------------------------------------------
+
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'setup', label: 'Setup' },
+  { id: 'participants', label: 'Participants' },
+  { id: 'teams', label: 'Teams' },
+  { id: 'submissions', label: 'Submissions' },
+  { id: 'judging', label: 'Judging' },
+  { id: 'prizes', label: 'Prizes' },
+]
+
+// ---------------------------------------------------------------------------
+// Overview tab content
+// ---------------------------------------------------------------------------
+
+function OverviewTab({
+  hackathonId,
+  stats,
+}: {
+  hackathonId: string
+  stats?: {
+    participant_count: number
+    team_count: number
+    submission_count: number
+    builder_count: number
+    judge_count: number
+    track_distribution: Record<string, number>
+  }
+}) {
+  const { data: participantsData } = useParticipants(hackathonId)
+  const { data: prizesData } = usePrizes(hackathonId)
+
+  const participants = participantsData?.participants ?? []
+  const prizes = prizesData?.prizes ?? []
+
+  const trackDist = stats?.track_distribution ?? {}
+  const maxTrack = Math.max(...Object.values(trackDist), 1)
+
+  return (
+    <div className="space-y-6">
+      {/* Quick stats */}
+      <div className="border-2 border-ink">
+        <div className="grid grid-cols-5">
+          {[
+            { label: 'Participants', value: stats?.participant_count ?? participants.length },
+            { label: 'Teams', value: stats?.team_count ?? 0 },
+            { label: 'Builders', value: stats?.builder_count ?? 0 },
+            { label: 'Judges', value: stats?.judge_count ?? 0 },
+            { label: 'Submissions', value: stats?.submission_count ?? 0 },
+          ].map((s, i) => (
+            <div
+              key={s.label}
+              className={['px-5 py-5', i < 4 ? 'border-r-2 border-ink' : ''].join(' ')}
+            >
+              <div className="font-archivo font-black text-[32px] leading-none text-ink mb-1">
+                {s.value}
+              </div>
+              <div className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Track distribution */}
+      {Object.keys(trackDist).length > 0 && (
+        <div className="border-2 border-ink">
+          <div className="bg-ink px-5 py-3">
+            <span className="font-archivo font-black text-[13px] uppercase text-cream tracking-tight">
+              Submissions by Track
+            </span>
+          </div>
+          <div className="p-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Object.entries(trackDist).map(([track, count]) => {
+              const pct = (count / maxTrack) * 100
+              return (
+                <div key={track}>
+                  <div className="mb-2 border border-ink bg-cream-mid h-20 flex flex-col justify-end overflow-hidden relative">
+                    <div
+                      className="bg-accent w-full transition-all"
+                      style={{ height: `${pct}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="font-archivo font-black text-[20px] text-ink z-10">
+                        {count}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted truncate">
+                    {track}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Navigation cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 border-2 border-ink">
+        {[
+          { href: 'setup', label: 'Setup', desc: 'Configure tracks, rubrics, status' },
+          { href: 'participants', label: 'Participants', desc: 'Manage participants and roles' },
+          { href: 'teams', label: 'Teams', desc: 'Create and manage teams' },
+          { href: 'submissions', label: 'Submissions', desc: 'View and search submissions' },
+          { href: 'judging', label: 'Judging', desc: 'Score and evaluate projects' },
+          { href: 'prizes', label: 'Prizes', desc: `${prizes.length} prizes configured` },
+        ].map((card, idx) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className={[
+              'px-5 py-5 hover:bg-cream-mid transition-colors block border-ink',
+              idx % 3 !== 2 ? 'border-r-2' : '',
+              idx < 3 ? 'border-b-2' : '',
+            ].join(' ')}
+          >
+            <p className="font-archivo font-black text-[14px] uppercase text-ink mb-1">
+              {card.label}
+            </p>
+            <p className="font-mono text-[9.5px] text-muted">{card.desc}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder tab
+// ---------------------------------------------------------------------------
+
+function PlaceholderTab({ label, href }: { label: string; href: string }) {
+  return (
+    <div className="border-2 border-ink px-6 py-12 text-center">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-muted mb-4">
+        {label} section
+      </p>
+      <Link
+        href={href}
+        className="font-mono text-[10px] uppercase tracking-widest text-accent hover:underline"
+      >
+        Open full {label} page →
+      </Link>
+    </div>
+  )
+}
+
+export default function HackathonDetailPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { data: hackathon, isLoading: hackathonLoading } = useHackathonById(params.hackathonId)
-  const { data: participants = [], isLoading: participantsLoading } = useParticipantsByHackathon(params.hackathonId)
-  const { data: teams = [], isLoading: teamsLoading } = useTeamsByHackathon(params.hackathonId)
-  const { data: projects = [], isLoading: projectsLoading } = useProjectsByHackathon(params.hackathonId)
-  const { data: submissions = [], isLoading: submissionsLoading } = useSubmissionsByHackathon(params.hackathonId)
-  const { data: prizes = [], isLoading: prizesLoading } = usePrizesByHackathon(params.hackathonId)
+  const { hackathonId } = params
+  const [activeTab, setActiveTab] = useState('overview')
 
-  if (hackathonLoading || participantsLoading || teamsLoading || projectsLoading || submissionsLoading || prizesLoading) {
+  const { data: hackathon, isLoading } = useHackathon(hackathonId)
+  const { data: overviewData } = useHackathonOverview(hackathonId)
+
+  if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        </div>
+      <div className="p-8">
+        <div className="border-2 border-ink h-24 bg-cream-mid animate-pulse mb-6" />
+        <div className="border-2 border-ink h-12 bg-cream-mid animate-pulse" />
       </div>
     )
   }
 
   if (!hackathon) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="text-center py-12">
-            <p className="text-gray-600">Hackathon not found</p>
-          </CardContent>
-        </Card>
+      <div className="p-8">
+        <div className="border-2 border-ink px-6 py-12 text-center">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
+            Hackathon not found
+          </p>
+        </div>
       </div>
     )
   }
 
-  const participantCount = participants.length
-  const teamCount = teams.length
-  const projectCount = projects.length
-  const submissionCount = submissions.length
-  const prizeCount = prizes.length
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'DRAFT': return 'bg-slate-100 text-slate-800 border-slate-300'
-      case 'LIVE': return 'bg-emerald-100 text-emerald-800 border-emerald-300'
-      case 'CLOSED': return 'bg-rose-100 text-rose-800 border-rose-300'
-      default: return 'bg-slate-100 text-slate-800 border-slate-300'
-    }
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">{hackathon.name}</h1>
-          <Badge className={`${getStatusColor(hackathon.status)} border font-semibold text-base px-4 py-1.5`}>
-            {hackathon.status}
-          </Badge>
+    <div className="p-8 max-w-[1360px]">
+      {/* Header */}
+      <div className="mb-7">
+        <div className="flex items-start gap-4 mb-3">
+          <h1 className="font-archivo font-black text-[32px] uppercase leading-none tracking-tight text-ink flex-1">
+            {hackathon.name}
+          </h1>
+          <StatusBadge status={hackathon.status} />
         </div>
-        <p className="text-slate-600 mb-4 text-lg">{hackathon.description}</p>
-        <div className="flex gap-6 text-sm text-slate-600">
-          <span className="flex items-center gap-2">
-            <span className="font-semibold">Start:</span> {new Date(hackathon.start_at).toLocaleString()}
+        {hackathon.description && (
+          <p className="text-[13px] text-muted mb-3 max-w-2xl">{hackathon.description}</p>
+        )}
+        <div className="flex flex-wrap items-center gap-5">
+          <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+            Start: {new Date(hackathon.start_date).toLocaleString()}
           </span>
-          <span className="flex items-center gap-2">
-            <span className="font-semibold">End:</span> {new Date(hackathon.end_at).toLocaleString()}
+          <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+            End: {new Date(hackathon.end_date).toLocaleString()}
           </span>
+          {hackathon.is_online && (
+            <span className="font-mono text-[9.5px] uppercase tracking-widest text-accent">
+              Online Event
+            </span>
+          )}
+          {hackathon.location && !hackathon.is_online && (
+            <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+              {hackathon.location}
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Participants</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="h-5 w-5 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{participantCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Teams</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <UsersRound className="h-5 w-5 text-emerald-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{teamCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Projects</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-              <FolderKanban className="h-5 w-5 text-orange-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{projectCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Submissions</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-              <FileCheck className="h-5 w-5 text-violet-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{submissionCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Prizes</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-              <Trophy className="h-5 w-5 text-yellow-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{prizeCount}</div>
-          </CardContent>
-        </Card>
+      {/* Tab navigation */}
+      <div className="flex border-2 border-ink mb-8 overflow-x-auto">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={[
+              'px-5 py-3 font-mono text-[10px] uppercase tracking-widest transition-colors shrink-0 border-r border-ink last:border-r-0',
+              activeTab === tab.id
+                ? 'bg-ink text-cream'
+                : 'text-muted hover:bg-cream-mid hover:text-ink',
+            ].join(' ')}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Link href={`/hackathons/${params.hackathonId}/setup`}>
-          <Card className="border-2 hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40 transition-all">
-                <Settings className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Setup</CardTitle>
-              <CardDescription className="text-base">Configure tracks, rubrics, and status</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/participants`}>
-          <Card className="border-2 hover:border-emerald-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:shadow-xl group-hover:shadow-emerald-500/40 transition-all">
-                <Users className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Participants</CardTitle>
-              <CardDescription className="text-base">Manage participants and roles</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/teams`}>
-          <Card className="border-2 hover:border-violet-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/30 group-hover:shadow-xl group-hover:shadow-violet-500/40 transition-all">
-                <UsersRound className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Teams</CardTitle>
-              <CardDescription className="text-base">Create and manage teams</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/projects`}>
-          <Card className="border-2 hover:border-orange-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:shadow-xl group-hover:shadow-orange-500/40 transition-all">
-                <FolderKanban className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Projects</CardTitle>
-              <CardDescription className="text-base">Track project progress</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/submissions`}>
-          <Card className="border-2 hover:border-teal-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-teal-500/30 group-hover:shadow-xl group-hover:shadow-teal-500/40 transition-all">
-                <FileCheck className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Submissions</CardTitle>
-              <CardDescription className="text-base">View and search submissions</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/judging`}>
-          <Card className="border-2 hover:border-rose-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg shadow-rose-500/30 group-hover:shadow-xl group-hover:shadow-rose-500/40 transition-all">
-                <Gavel className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Judging</CardTitle>
-              <CardDescription className="text-base">Score and evaluate projects</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/leaderboard`}>
-          <Card className="border-2 hover:border-yellow-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center shadow-lg shadow-yellow-500/30 group-hover:shadow-xl group-hover:shadow-yellow-500/40 transition-all">
-                <Trophy className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Leaderboard</CardTitle>
-              <CardDescription className="text-base">View rankings and results</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href={`/hackathons/${params.hackathonId}/prizes`}>
-          <Card className="border-2 hover:border-amber-300 hover:shadow-xl transition-all cursor-pointer h-full group">
-            <CardHeader>
-              <div className="w-14 h-14 mb-3 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/30 group-hover:shadow-xl group-hover:shadow-amber-500/40 transition-all">
-                <Trophy className="h-7 w-7 text-white" />
-              </div>
-              <CardTitle className="text-xl">Prizes</CardTitle>
-              <CardDescription className="text-base">Manage prizes and rewards</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-      </div>
+      {/* Tab content */}
+      {activeTab === 'overview' && (
+        <OverviewTab hackathonId={hackathonId} stats={overviewData?.stats} />
+      )}
+      {activeTab === 'setup' && (
+        <PlaceholderTab label="Setup" href={`/hackathons/${hackathonId}/setup`} />
+      )}
+      {activeTab === 'participants' && (
+        <PlaceholderTab label="Participants" href={`/hackathons/${hackathonId}/participants`} />
+      )}
+      {activeTab === 'teams' && (
+        <PlaceholderTab label="Teams" href={`/hackathons/${hackathonId}/teams`} />
+      )}
+      {activeTab === 'submissions' && (
+        <PlaceholderTab label="Submissions" href={`/hackathons/${hackathonId}/submissions`} />
+      )}
+      {activeTab === 'judging' && (
+        <PlaceholderTab label="Judging" href={`/hackathons/${hackathonId}/judging`} />
+      )}
+      {activeTab === 'prizes' && (
+        <PlaceholderTab label="Prizes" href={`/hackathons/${hackathonId}/prizes`} />
+      )}
     </div>
   )
 }

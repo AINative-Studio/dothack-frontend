@@ -1,213 +1,397 @@
 "use client"
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { useHackathons } from '@/hooks/use-hackathons'
-import { useSubmissions } from '@/hooks/use-submissions'
-import { useScores } from '@/hooks/use-scores'
-import { useProjects } from '@/hooks/use-projects'
-import { Calendar, ArrowRight, FileCheck, Award, CheckCircle, Loader2 } from 'lucide-react'
+import { useJudgeAssignments, useSubmitScore, useHackathons } from '@/hooks/use-api'
+import type { JudgeAssignment } from '@/lib/api/judging'
 
-export function JudgeDashboard() {
-  const router = useRouter()
-  const { data: hackathons = [], isLoading: hackathonsLoading } = useHackathons()
-  const { data: submissions = [], isLoading: submissionsLoading } = useSubmissions()
-  const { data: scores = [], isLoading: scoresLoading } = useScores()
-  const { data: projects = [], isLoading: projectsLoading } = useProjects()
+// ---------------------------------------------------------------------------
+// Assignment card
+// ---------------------------------------------------------------------------
 
-  if (hackathonsLoading || submissionsLoading || scoresLoading || projectsLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+function AssignmentCard({
+  assignment,
+  onScore,
+}: {
+  assignment: JudgeAssignment
+  onScore: (a: JudgeAssignment) => void
+}) {
+  const isPending = assignment.status === 'PENDING'
+  return (
+    <div
+      className={[
+        'border-2 p-5 flex flex-col gap-3',
+        isPending ? 'border-accent' : 'border-ink',
+      ].join(' ')}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-archivo font-black text-[14px] uppercase text-ink leading-tight mb-1">
+            {assignment.project_name}
+          </p>
+          <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+            {assignment.team_name} · {assignment.track}
+          </p>
         </div>
+        <span
+          className={[
+            'font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0',
+            isPending
+              ? 'bg-accent text-white'
+              : 'bg-ink text-cream',
+          ].join(' ')}
+        >
+          {assignment.status}
+        </span>
       </div>
-    )
-  }
 
-  const liveHackathons = hackathons.filter(h => h.status === 'LIVE')
-  const totalSubmissions = submissions.length
-  const myScores = scores.length
-  const scoredSubmissions = new Set(scores.map(s => s.submission_id)).size
+      {/* Score button or done indicator */}
+      {isPending ? (
+        <button
+          onClick={() => onScore(assignment)}
+          className="self-start bg-accent text-white font-archivo font-bold text-[11px] uppercase tracking-wide px-4 py-2 hover:bg-danger transition-colors"
+        >
+          Score Submission →
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-ink text-cream flex items-center justify-center text-[8px]">
+            ✓
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
+            Scored
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'DRAFT': return 'bg-slate-100 text-slate-800 border-slate-300'
-      case 'LIVE': return 'bg-emerald-100 text-emerald-800 border-emerald-300'
-      case 'CLOSED': return 'bg-rose-100 text-rose-800 border-rose-300'
-      default: return 'bg-slate-100 text-slate-800 border-slate-300'
-    }
-  }
+// ---------------------------------------------------------------------------
+// Scoring panel (placeholder interface)
+// ---------------------------------------------------------------------------
 
-  const getProgressPercentage = () => {
-    if (totalSubmissions === 0) return 0
-    return Math.round((scoredSubmissions / totalSubmissions) * 100)
+function ScoringPanel({
+  assignment,
+  onClose,
+}: {
+  assignment: JudgeAssignment
+  onClose: () => void
+}) {
+  const submitScore = useSubmitScore()
+  const [scores, setScores] = useState<Record<string, number>>({
+    innovation: 5,
+    execution: 5,
+    impact: 5,
+    presentation: 5,
+  })
+  const [comment, setComment] = useState('')
+
+  const total = Object.values(scores).reduce((a, b) => a + b, 0)
+  const max = Object.keys(scores).length * 10
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await submitScore.mutateAsync({
+      submission_id: assignment.submission_id,
+      hackathon_id: assignment.hackathon_id,
+      rubric_id: 'default',
+      judge_id: 'me',
+      criteria: scores,
+      score: total,
+      comment,
+    })
+    onClose()
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="fixed inset-0 bg-ink/60 flex items-center justify-center z-50">
+      <div className="bg-cream border-2 border-ink w-full max-w-lg shadow-modal">
+        <div className="bg-ink px-6 py-4 flex items-center justify-between">
+          <div>
+            <span className="font-archivo font-black text-[15px] uppercase text-cream tracking-tight">
+              Score Submission
+            </span>
+            <p className="font-mono text-[9px] uppercase text-muted-light tracking-widest mt-0.5">
+              {assignment.project_name}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-cream hover:text-muted-light font-mono text-lg leading-none"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {Object.entries(scores).map(([criterion, value]) => (
+            <div key={criterion}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-mono text-[10px] uppercase tracking-widest text-muted">
+                  {criterion}
+                </label>
+                <span className="font-archivo font-black text-[18px] text-ink">
+                  {value}
+                  <span className="font-mono font-normal text-[11px] text-muted">/10</span>
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={value}
+                onChange={(e) =>
+                  setScores({ ...scores, [criterion]: Number(e.target.value) })
+                }
+                className="w-full accent-accent"
+              />
+            </div>
+          ))}
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-1.5">
+              Comment (optional)
+            </label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={3}
+              className="w-full border-2 border-ink bg-input-bg px-3 py-2 text-[13px] text-ink outline-none focus:border-accent resize-none"
+              placeholder="Feedback for the team..."
+            />
+          </div>
+
+          {/* Total */}
+          <div className="flex items-center justify-between border-t-2 border-ink pt-4">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
+              Total Score
+            </span>
+            <span className="font-archivo font-black text-[28px] text-ink">
+              {total}
+              <span className="font-mono font-normal text-[13px] text-muted">/{max}</span>
+            </span>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={submitScore.isPending}
+              className="bg-accent text-white font-archivo font-bold text-[12px] uppercase tracking-wide px-5 py-2.5 hover:bg-danger transition-colors disabled:opacity-60"
+            >
+              {submitScore.isPending ? 'Submitting...' : 'Submit Score'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="border-2 border-ink text-ink font-archivo font-bold text-[12px] uppercase tracking-wide px-5 py-2.5 hover:bg-cream-dark transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main dashboard
+// ---------------------------------------------------------------------------
+
+export function JudgeDashboard() {
+  const router = useRouter()
+  const { data: assignmentsData, isLoading: assignLoading } = useJudgeAssignments()
+  const { data: hackathonsResp, isLoading: hackLoading } = useHackathons()
+  const [scoringAssignment, setScoringAssignment] = useState<JudgeAssignment | null>(null)
+
+  const isLoading = assignLoading || hackLoading
+
+  const assignments = assignmentsData?.assignments ?? []
+  const hackathons = hackathonsResp?.hackathons ?? []
+
+  const pending = assignments.filter((a) => a.status === 'PENDING')
+  const scored = assignments.filter((a) => a.status === 'SCORED')
+  const progress = assignments.length > 0
+    ? Math.round((scored.length / assignments.length) * 100)
+    : 0
+
+  return (
+    <div className="p-8 max-w-[1360px]">
+      {/* Title */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-          Judge Dashboard
+        <h1 className="font-archivo font-black text-[38px] uppercase leading-none tracking-tight text-ink">
+          Judge<br />Dashboard
         </h1>
-        <p className="text-slate-600">Evaluate submissions and provide feedback</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Active Events</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-              <Calendar className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{liveHackathons.length}</div>
-            <p className="text-xs text-slate-600 mt-1">Judging now</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Submissions</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-              <FileCheck className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{totalSubmissions}</div>
-            <p className="text-xs text-slate-600 mt-1">To review</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Scored</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-              <CheckCircle className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{scoredSubmissions}</div>
-            <p className="text-xs text-slate-600 mt-1">Completed reviews</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Total Scores</CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <Award className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{myScores}</div>
-            <p className="text-xs text-slate-600 mt-1">Criteria scored</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border-2 shadow-lg mb-8 bg-gradient-to-br from-violet-50 to-purple-50">
-        <CardHeader>
-          <CardTitle className="text-xl">Judging Progress</CardTitle>
-          <CardDescription>Your overall judging completion</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm font-medium">
-              <span>{scoredSubmissions} of {totalSubmissions} submissions reviewed</span>
-              <span>{getProgressPercentage()}%</span>
-            </div>
-            <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
+      {/* Stats grid */}
+      <div className="border-2 border-ink mb-8">
+        <div className="grid grid-cols-4">
+          {[
+            {
+              label: 'Assignments',
+              value: isLoading ? '—' : assignments.length,
+              dark: false,
+            },
+            {
+              label: 'Pending',
+              value: isLoading ? '—' : pending.length,
+              dark: pending.length > 0,
+            },
+            {
+              label: 'Scored',
+              value: isLoading ? '—' : scored.length,
+              dark: false,
+            },
+            {
+              label: 'Completion',
+              value: isLoading ? '—' : `${progress}%`,
+              dark: false,
+            },
+          ].map((stat, i) => (
+            <div
+              key={stat.label}
+              className={[
+                'px-6 py-6',
+                i < 3 ? 'border-r-2 border-ink' : '',
+                stat.dark ? 'bg-ink' : '',
+              ].join(' ')}
+            >
               <div
-                className="h-full bg-gradient-to-r from-violet-600 to-purple-600 transition-all"
-                style={{ width: `${getProgressPercentage()}%` }}
+                className={[
+                  'font-archivo font-black text-[40px] leading-none mb-2',
+                  stat.dark ? 'text-accent' : 'text-ink',
+                ].join(' ')}
+              >
+                {stat.value}
+              </div>
+              <div className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Progress bar */}
+        {!isLoading && assignments.length > 0 && (
+          <div className="border-t-2 border-ink px-6 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                Judging Progress
+              </span>
+              <span className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                {scored.length}/{assignments.length}
+              </span>
+            </div>
+            <div className="h-2 bg-cream-mid border border-ink w-full">
+              <div
+                className="h-full bg-accent transition-all"
+                style={{ width: `${progress}%` }}
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-          <CardTitle className="text-2xl">Hackathons to Judge</CardTitle>
-          <CardDescription>Select a hackathon to view and score submissions</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {hackathons.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-                <Calendar className="h-8 w-8 text-slate-400" />
+      {/* Pending assignments */}
+      {pending.length > 0 && (
+        <div className="border-2 border-ink mb-8">
+          <div className="bg-ink px-5 py-3 flex items-center gap-3">
+            <span className="font-archivo font-black text-[13px] uppercase text-cream tracking-tight">
+              Pending Review
+            </span>
+            <span className="bg-accent text-white font-mono text-[9px] uppercase tracking-widest px-2 py-0.5">
+              {pending.length}
+            </span>
+          </div>
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pending.map((assignment) => (
+              <AssignmentCard
+                key={assignment.submission_id}
+                assignment={assignment}
+                onScore={setScoringAssignment}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All assignments */}
+      {!isLoading && assignments.length === 0 ? (
+        <div className="border-2 border-ink px-5 py-12 text-center">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted mb-2">
+            No assignments yet
+          </p>
+          <p className="text-[13px] text-muted">
+            You will be notified when judging assignments are ready
+          </p>
+        </div>
+      ) : scored.length > 0 ? (
+        <div className="border-2 border-ink mb-8">
+          <div className="bg-cream-dark px-5 py-3">
+            <span className="font-archivo font-black text-[13px] uppercase text-ink tracking-tight">
+              Completed Reviews
+            </span>
+          </div>
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {scored.map((assignment) => (
+              <AssignmentCard
+                key={assignment.submission_id}
+                assignment={assignment}
+                onScore={setScoringAssignment}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Hackathons to judge */}
+      {hackathons.length > 0 && (
+        <div className="border-2 border-ink">
+          <div className="bg-ink px-5 py-3">
+            <span className="font-archivo font-black text-[13px] uppercase text-cream tracking-tight">
+              Hackathons to Judge
+            </span>
+          </div>
+          <div>
+            {hackathons.map((h, idx) => (
+              <div
+                key={h.hackathon_id}
+                className={[
+                  'px-6 py-5 flex items-center justify-between',
+                  idx < hackathons.length - 1 ? 'border-b border-border-light' : '',
+                ].join(' ')}
+              >
+                <div>
+                  <p className="font-archivo font-black text-[14px] uppercase text-ink mb-1">
+                    {h.name}
+                  </p>
+                  <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
+                    Ends {new Date(h.end_date).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => router.push(`/hackathons/${h.hackathon_id}/judging`)}
+                  className="bg-accent text-white font-archivo font-bold text-[11px] uppercase tracking-wide px-4 py-2 hover:bg-danger transition-colors"
+                >
+                  Judge →
+                </button>
               </div>
-              <p className="text-slate-600 mb-2 text-lg">No hackathons assigned</p>
-              <p className="text-sm text-slate-500">You will be notified when judging begins</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {hackathons.map((hackathon) => {
-                const hackathonSubmissions = submissions.filter(s => {
-                  const project = projects.find(p => p.project_id === s.project_id)
-                  return project?.hackathon_id === hackathon.hackathon_id
-                }).length
-                const hackathonScored = scores.filter(s => {
-                  const submission = submissions.find(sub => sub.submission_id === s.submission_id)
-                  if (!submission) return false
-                  const project = projects.find(p => p.project_id === submission.project_id)
-                  return project?.hackathon_id === hackathon.hackathon_id
-                }).length
+            ))}
+          </div>
+        </div>
+      )}
 
-                return (
-                  <div key={hackathon.hackathon_id} className="p-4 sm:p-6 border-2 rounded-lg hover:shadow-md transition-all">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-3 mb-2">
-                          <h3 className="text-lg sm:text-xl font-bold text-slate-900">{hackathon.name}</h3>
-                          <Badge className={`${getStatusColor(hackathon.status)} border font-semibold`}>
-                            {hackathon.status}
-                          </Badge>
-                        </div>
-                        <p className="text-slate-600 mb-3">{hackathon.description}</p>
-                        <div className="space-y-2 mb-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-600">Judging Progress</span>
-                            <span className="font-semibold text-slate-900">
-                              {hackathonSubmissions > 0 ? Math.round((hackathonScored / hackathonSubmissions) * 100) : 0}%
-                            </span>
-                          </div>
-                          <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-violet-600 to-purple-600 transition-all"
-                              style={{ width: `${hackathonSubmissions > 0 ? (hackathonScored / hackathonSubmissions) * 100 : 0}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                          <span className="flex items-center gap-1">
-                            <FileCheck className="h-4 w-4" />
-                            {hackathonSubmissions} submissions
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            Ends {new Date(hackathon.end_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => router.push(`/hackathons/${hackathon.hackathon_id}/judging`)}
-                        className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all w-full sm:w-auto"
-                      >
-                        Start Judging <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Scoring panel */}
+      {scoringAssignment && (
+        <ScoringPanel
+          assignment={scoringAssignment}
+          onClose={() => setScoringAssignment(null)}
+        />
+      )}
     </div>
   )
 }

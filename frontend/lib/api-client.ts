@@ -116,6 +116,11 @@ export class ApiClient {
     // Remove leading slash from endpoint if present
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
 
+    // If baseUrl already includes /api/v1, just append the endpoint
+    if (this.baseUrl.includes('/api/')) {
+      return `${this.baseUrl}/${cleanEndpoint}`
+    }
+
     // If endpoint already includes /api/, use it as-is
     if (cleanEndpoint.startsWith('api/')) {
       return `${this.baseUrl}/${cleanEndpoint}`
