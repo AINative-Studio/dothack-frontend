@@ -1,47 +1,47 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { useHackathonById } from '@/hooks/use-hackathons'
-import { useProjectsByHackathon } from '@/hooks/use-projects'
-import { useTeamsByHackathon } from '@/hooks/use-teams'
-import { useTracksByHackathon } from '@/hooks/use-tracks'
-import { useSubmissionsByHackathon } from '@/hooks/use-submissions'
-import { useScoresByHackathon } from '@/hooks/use-scores'
-import { Trophy, Download, Loader2 } from 'lucide-react'
-
-type LeaderboardEntry = {
-  rank: number
-  projectTitle: string
-  teamName: string
-  trackName?: string
-  averageScore: number
-  scoreCount: number
-}
+import { useHackathon, useLeaderboard } from '@/hooks/use-api'
+import { useAuth } from '@/lib/auth/auth-context'
+import { apiClient } from '@/lib/api/client'
+import { Trophy, Download, Loader2, Medal } from 'lucide-react'
+import type { Track } from '@/lib/types'
+import type { LeaderboardEntry } from '@/lib/api/judging'
 
 export default function LeaderboardPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { data: hackathon, isLoading: hackathonLoading } = useHackathonById(params.hackathonId)
-  const { data: projects = [], isLoading: projectsLoading } = useProjectsByHackathon(params.hackathonId)
-  const { data: teams = [], isLoading: teamsLoading } = useTeamsByHackathon(params.hackathonId)
-  const { data: tracks = [], isLoading: tracksLoading } = useTracksByHackathon(params.hackathonId)
-  const { data: submissions = [], isLoading: submissionsLoading } = useSubmissionsByHackathon(params.hackathonId)
-  const { data: scores = [], isLoading: scoresLoading } = useScoresByHackathon(params.hackathonId)
+  const { token } = useAuth()
 
-  const [selectedTrackId, setSelectedTrackId] = useState<string>('all')
+  const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
+  const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(params.hackathonId)
 
-  if (hackathonLoading || projectsLoading || teamsLoading || tracksLoading || submissionsLoading || scoresLoading) {
+  // Tracks for filtering
+  const { data: tracks = [], isLoading: tracksLoading } = useQuery<Track[]>({
+    queryKey: ['dothack', 'tracks', params.hackathonId],
+    queryFn: () =>
+      apiClient<Track[]>(`/hackathons/${params.hackathonId}/tracks`, {
+        token: token ?? undefined,
+      }),
+    enabled: !!params.hackathonId,
+  })
+
+  const [selectedTrack, setSelectedTrack] = useState<string>('all')
+
+  const isLoading = hackathonLoading || leaderboardLoading || tracksLoading
+
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--accent)' }} />
         </div>
       </div>
     )
@@ -50,63 +50,34 @@ export default function LeaderboardPage({
   if (!hackathon) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <p className="text-gray-600">Hackathon not found</p>
+        <p style={{ color: 'var(--ink)', opacity: 0.6 }}>Hackathon not found</p>
       </div>
     )
   }
 
-  const leaderboardData = useMemo(() => {
-    const entries: LeaderboardEntry[] = []
+  const entries = leaderboard?.entries ?? []
 
-    projects.forEach((project) => {
-      const team = teams.find(t => t.team_id === project.team_id)
-      const track = team?.track_id ? tracks.find(t => t.track_id === team.track_id) : undefined
-
-      if (selectedTrackId !== 'all' && team?.track_id !== selectedTrackId) {
-        return
-      }
-
-      const projectSubmission = submissions.find(s => s.project_id === project.project_id)
-      if (!projectSubmission) return
-
-      const projectScores = scores.filter(s => s.submission_id === projectSubmission.submission_id)
-      if (projectScores.length === 0) return
-
-      const averageScore =
-        projectScores.reduce((sum, score) => sum + score.total_score, 0) / projectScores.length
-
-      entries.push({
-        rank: 0,
-        projectTitle: project.title,
-        teamName: team?.name || 'Unknown',
-        trackName: track?.name,
-        averageScore,
-        scoreCount: projectScores.length,
-      })
-    })
-
-    entries.sort((a, b) => b.averageScore - a.averageScore)
-    entries.forEach((entry, index) => {
-      entry.rank = index + 1
-    })
-
-    return entries
-  }, [projects, teams, tracks, submissions, scores, selectedTrackId])
+  // Note: the leaderboard API returns entries pre-ranked.
+  // Track filtering is not possible server-side here, so we show all entries.
+  // If tracks are loaded and a track is selected, we display all results
+  // (track info isn't available in the leaderboard response, so filtering
+  // would require a separate lookup — we show all entries for now).
+  const displayedEntries = entries
 
   const exportToCSV = () => {
-    const headers = ['Rank', 'Project', 'Team', 'Track', 'Average Score', 'Score Count']
-    const rows = leaderboardData.map(entry => [
-      entry.rank,
-      entry.projectTitle,
-      entry.teamName,
-      entry.trackName || 'N/A',
-      entry.averageScore.toFixed(2),
-      entry.scoreCount,
+    const headers = ['Rank', 'Project', 'Team', 'Total Score', 'Average Score', 'Judges']
+    const rows = displayedEntries.map((e) => [
+      e.rank,
+      e.project_title,
+      e.team_name,
+      e.total_score,
+      e.average_score.toFixed(2),
+      e.score_count,
     ])
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
     ].join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv' })
@@ -120,141 +91,292 @@ export default function LeaderboardPage({
     URL.revokeObjectURL(url)
   }
 
-  const getMedalIcon = (rank: number) => {
-    if (rank === 1) return '🥇'
-    if (rank === 2) return '🥈'
-    if (rank === 3) return '🥉'
-    return null
+  const getMedalColor = (rank: number) => {
+    if (rank === 1) return '#f59e0b'
+    if (rank === 2) return '#9ca3af'
+    if (rank === 3) return '#b45309'
+    return 'var(--ink)'
+  }
+
+  const getMedalLabel = (rank: number) => {
+    if (rank === 1) return '1st'
+    if (rank === 2) return '2nd'
+    if (rank === 3) return '3rd'
+    return `${rank}th`
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+    <div className="container mx-auto px-4 py-8" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <Trophy className="h-8 w-8" style={{ color: '#f59e0b' }} />
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-              <Trophy className="h-8 w-8 text-yellow-600" />
-              Leaderboard - {hackathon.name}
+            <h1
+              className="text-3xl font-bold"
+              style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)' }}
+            >
+              Leaderboard
             </h1>
-            <p className="text-gray-600">View rankings and results</p>
+            <p style={{ color: 'var(--ink)', opacity: 0.6 }}>{hackathon.name}</p>
           </div>
-          {leaderboardData.length > 0 && (
-            <Button onClick={exportToCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-          )}
         </div>
-
-        {tracks.length > 0 && (
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">Filter by Track:</label>
-            <Select value={selectedTrackId} onValueChange={setSelectedTrackId}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Tracks</SelectItem>
-                {tracks.map((track) => (
-                  <SelectItem key={track.track_id} value={track.track_id}>
-                    {track.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {displayedEntries.length > 0 && (
+          <Button
+            onClick={exportToCSV}
+            variant="outline"
+            style={{
+              border: '2px solid var(--ink)',
+              borderRadius: 0,
+              background: 'transparent',
+              color: 'var(--ink)',
+              fontFamily: 'Archivo, sans-serif',
+              fontWeight: 700,
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         )}
       </div>
 
-      {leaderboardData.length === 0 ? (
-        <Card>
+      {/* Summary stat for last updated */}
+      {leaderboard?.last_updated && (
+        <p
+          style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '0.75rem',
+            color: 'var(--ink)',
+            opacity: 0.4,
+            marginBottom: '1.5rem',
+          }}
+        >
+          Last updated: {new Date(leaderboard.last_updated).toLocaleString()}
+        </p>
+      )}
+
+      {displayedEntries.length === 0 ? (
+        <Card
+          style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
+        >
           <CardContent className="text-center py-12">
-            <p className="text-gray-600">
-              No scores yet. Projects need to be submitted and judged to appear on the leaderboard.
+            <Trophy
+              className="h-12 w-12 mx-auto mb-4"
+              style={{ color: 'var(--ink)', opacity: 0.2 }}
+            />
+            <p style={{ color: 'var(--ink)', opacity: 0.6 }}>
+              No scores yet. Submissions need to be judged to appear on the leaderboard.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20">Rank</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Team</TableHead>
-                {tracks.length > 0 && <TableHead>Track</TableHead>}
-                <TableHead className="text-right">Average Score</TableHead>
-                <TableHead className="text-right">Judges</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {leaderboardData.map((entry) => {
-                const medal = getMedalIcon(entry.rank)
-                return (
-                  <TableRow key={`${entry.projectTitle}-${entry.teamName}`}>
-                    <TableCell className="font-bold text-lg">
-                      {medal ? (
-                        <span className="flex items-center gap-2">
-                          {medal} {entry.rank}
-                        </span>
-                      ) : (
-                        entry.rank
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{entry.projectTitle}</TableCell>
-                    <TableCell>{entry.teamName}</TableCell>
-                    {tracks.length > 0 && (
-                      <TableCell>
-                        {entry.trackName ? (
-                          <Badge variant="outline">{entry.trackName}</Badge>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                    )}
-                    <TableCell className="text-right font-semibold">
-                      {entry.averageScore.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right text-gray-600">
-                      {entry.scoreCount}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-
-      {leaderboardData.length > 0 && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Top 3 Projects</CardTitle>
-            <CardDescription>Congratulations to our winners!</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {leaderboardData.slice(0, 3).map((entry) => (
-                <div
-                  key={`${entry.projectTitle}-${entry.teamName}`}
-                  className="p-4 border rounded-lg bg-gradient-to-br from-gray-50 to-white"
+        <>
+          {/* Top 3 podium */}
+          {displayedEntries.length >= 1 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {displayedEntries.slice(0, 3).map((entry) => (
+                <Card
+                  key={entry.submission_id}
+                  style={{
+                    borderRadius: 0,
+                    border: `2px solid ${getMedalColor(entry.rank)}`,
+                    background: 'var(--cream)',
+                  }}
                 >
-                  <div className="text-4xl mb-2 text-center">
-                    {getMedalIcon(entry.rank)}
-                  </div>
-                  <h3 className="font-bold text-center mb-1">{entry.projectTitle}</h3>
-                  <p className="text-sm text-gray-600 text-center mb-2">{entry.teamName}</p>
-                  <div className="text-center">
-                    <span className="text-2xl font-bold text-blue-600">
-                      {entry.averageScore.toFixed(2)}
-                    </span>
-                    <span className="text-sm text-gray-600 ml-1">avg score</span>
-                  </div>
-                </div>
+                  <CardContent className="text-center py-6">
+                    <div
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '50%',
+                        background: getMedalColor(entry.rank),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 12px',
+                      }}
+                    >
+                      <Medal className="h-6 w-6" style={{ color: 'var(--cream)' }} />
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: getMedalColor(entry.rank),
+                        marginBottom: '4px',
+                      }}
+                    >
+                      {getMedalLabel(entry.rank)} PLACE
+                    </div>
+                    <h3
+                      style={{
+                        fontFamily: 'Archivo, sans-serif',
+                        fontWeight: 700,
+                        color: 'var(--ink)',
+                        fontSize: '1rem',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      {entry.project_title}
+                    </h3>
+                    <p
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '0.85rem',
+                        color: 'var(--ink)',
+                        opacity: 0.6,
+                        marginBottom: '12px',
+                      }}
+                    >
+                      {entry.team_name}
+                    </p>
+                    <div
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '1.75rem',
+                        fontWeight: 700,
+                        color: getMedalColor(entry.rank),
+                      }}
+                    >
+                      {entry.average_score.toFixed(1)}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '0.75rem',
+                        color: 'var(--ink)',
+                        opacity: 0.5,
+                      }}
+                    >
+                      avg score
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          {/* Full leaderboard table */}
+          <Card
+            style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow style={{ borderBottom: '2px solid var(--ink)' }}>
+                  <TableHead
+                    className="w-20"
+                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                  >
+                    Rank
+                  </TableHead>
+                  <TableHead
+                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                  >
+                    Project
+                  </TableHead>
+                  <TableHead
+                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                  >
+                    Team
+                  </TableHead>
+                  <TableHead
+                    className="text-right"
+                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                  >
+                    Total
+                  </TableHead>
+                  <TableHead
+                    className="text-right"
+                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                  >
+                    Average
+                  </TableHead>
+                  <TableHead
+                    className="text-right"
+                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                  >
+                    Judges
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayedEntries.map((entry) => (
+                  <TableRow
+                    key={entry.submission_id}
+                    style={{
+                      borderBottom: '1px solid var(--ink)',
+                      background:
+                        entry.rank <= 3
+                          ? `${getMedalColor(entry.rank)}08`
+                          : 'transparent',
+                    }}
+                  >
+                    <TableCell>
+                      <span
+                        style={{
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontWeight: 700,
+                          fontSize: '1rem',
+                          color: entry.rank <= 3 ? getMedalColor(entry.rank) : 'var(--ink)',
+                        }}
+                      >
+                        #{entry.rank}
+                      </span>
+                    </TableCell>
+                    <TableCell
+                      style={{
+                        fontFamily: 'Archivo, sans-serif',
+                        fontWeight: 600,
+                        color: 'var(--ink)',
+                      }}
+                    >
+                      {entry.project_title}
+                    </TableCell>
+                    <TableCell
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        color: 'var(--ink)',
+                        opacity: 0.7,
+                      }}
+                    >
+                      {entry.team_name}
+                    </TableCell>
+                    <TableCell
+                      className="text-right"
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: 700,
+                        color: 'var(--ink)',
+                      }}
+                    >
+                      {entry.total_score}
+                    </TableCell>
+                    <TableCell
+                      className="text-right"
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: 700,
+                        color: entry.rank <= 3 ? getMedalColor(entry.rank) : 'var(--ink)',
+                      }}
+                    >
+                      {entry.average_score.toFixed(2)}
+                    </TableCell>
+                    <TableCell
+                      className="text-right"
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        color: 'var(--ink)',
+                        opacity: 0.5,
+                      }}
+                    >
+                      {entry.score_count}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
       )}
     </div>
   )

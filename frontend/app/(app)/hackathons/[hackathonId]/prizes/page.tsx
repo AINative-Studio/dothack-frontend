@@ -1,53 +1,71 @@
 "use client"
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { usePrizesByHackathon, useCreatePrize } from '@/hooks/use-prizes'
-import { useTracksByHackathon } from '@/hooks/use-tracks'
+import { useHackathon, usePrizes, useCreatePrize } from '@/hooks/use-api'
+import { useAuth } from '@/lib/auth/auth-context'
+import { apiClient } from '@/lib/api/client'
 import { Trophy, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import type { Track } from '@/lib/types'
+import type { CreatePrizeInput } from '@/lib/api/hackathons-backend'
 
 export default function PrizesPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { data: prizes = [], isLoading: prizesLoading } = usePrizesByHackathon(params.hackathonId)
-  const { data: tracks = [], isLoading: tracksLoading } = useTracksByHackathon(params.hackathonId)
+  const { token } = useAuth()
+
+  const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
+  const { data: prizesData, isLoading: prizesLoading } = usePrizes(params.hackathonId)
   const createPrize = useCreatePrize()
+
+  // Tracks for optional track association
+  const { data: tracks = [], isLoading: tracksLoading } = useQuery<Track[]>({
+    queryKey: ['dothack', 'tracks', params.hackathonId],
+    queryFn: () =>
+      apiClient<Track[]>(`/hackathons/${params.hackathonId}/tracks`, {
+        token: token ?? undefined,
+      }),
+    enabled: !!params.hackathonId,
+  })
 
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    amount: '',
+    amount: 0,
+    currency: 'USD',
     rank: 1,
-    track_id: '',
+    sponsor: '',
   })
 
+  const prizes = prizesData?.prizes ?? []
   const sortedPrizes = [...prizes].sort((a, b) => a.rank - b.rank)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     try {
       await createPrize.mutateAsync({
-        hackathon_id: params.hackathonId,
-        title: formData.title,
-        description: formData.description,
-        amount: formData.amount,
-        rank: formData.rank,
-        track_id: formData.track_id || undefined,
+        hackathonId: params.hackathonId,
+        data: {
+          title: formData.title,
+          description: formData.description,
+          amount: formData.amount,
+          currency: formData.currency,
+          rank: formData.rank,
+          sponsor: formData.sponsor || undefined,
+        },
       })
-
       toast.success('Prize created successfully')
-      setFormData({ title: '', description: '', amount: '', rank: 1, track_id: '' })
+      setFormData({ title: '', description: '', amount: 0, currency: 'USD', rank: 1, sponsor: '' })
       setOpen(false)
     } catch (error) {
       console.error('Failed to create prize:', error)
@@ -57,130 +75,199 @@ export default function PrizesPage({
     }
   }
 
-  const getRankColor = (rank: number) => {
-    switch (rank) {
-      case 1: return 'from-yellow-500 to-amber-500'
-      case 2: return 'from-slate-400 to-slate-500'
-      case 3: return 'from-orange-600 to-amber-700'
-      default: return 'from-blue-500 to-cyan-500'
-    }
-  }
-
-  const getRankLabel = (rank: number) => {
-    switch (rank) {
-      case 1: return '1st Place'
-      case 2: return '2nd Place'
-      case 3: return '3rd Place'
-      default: return `${rank}th Place`
-    }
-  }
-
-  if (prizesLoading || tracksLoading) {
+  if (hackathonLoading || prizesLoading || tracksLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--accent)' }} />
         </div>
       </div>
     )
   }
 
+  if (!hackathon) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <p style={{ color: 'var(--ink)', opacity: 0.6 }}>Hackathon not found</p>
+      </div>
+    )
+  }
+
+  const getRankAccentColor = (rank: number) => {
+    if (rank === 1) return '#f59e0b'
+    if (rank === 2) return '#9ca3af'
+    if (rank === 3) return '#b45309'
+    return 'var(--accent)'
+  }
+
+  const getRankLabel = (rank: number) => {
+    if (rank === 1) return '1st Place'
+    if (rank === 2) return '2nd Place'
+    if (rank === 3) return '3rd Place'
+    return `${rank}th Place`
+  }
+
+  const inputStyle = {
+    border: '2px solid var(--ink)',
+    borderRadius: 0,
+    background: 'var(--cream)',
+    color: 'var(--ink)',
+    fontFamily: 'Inter, sans-serif',
+  }
+
+  const labelStyle = {
+    fontFamily: 'Archivo, sans-serif',
+    fontWeight: 700 as const,
+    color: 'var(--ink)',
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+          <h1
+            className="text-3xl font-bold mb-1"
+            style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)' }}
+          >
             Prizes
           </h1>
-          <p className="text-slate-600 mt-2">Manage prizes and rewards for this hackathon</p>
+          <p style={{ color: 'var(--ink)', opacity: 0.6 }}>{hackathon.name}</p>
         </div>
+
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/30">
+            <Button
+              style={{
+                background: 'var(--ink)',
+                color: 'var(--cream)',
+                border: '2px solid var(--ink)',
+                borderRadius: 0,
+                fontFamily: 'Archivo, sans-serif',
+                fontWeight: 700,
+              }}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Prize
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent
+            style={{
+              borderRadius: 0,
+              border: '2px solid var(--ink)',
+              background: 'var(--cream)',
+              fontFamily: 'Inter, sans-serif',
+            }}
+          >
             <DialogHeader>
-              <DialogTitle>Add New Prize</DialogTitle>
-              <DialogDescription>Create a new prize for this hackathon</DialogDescription>
+              <DialogTitle style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)' }}>
+                Add New Prize
+              </DialogTitle>
+              <DialogDescription style={{ color: 'var(--ink)', opacity: 0.6 }}>
+                Create a new prize for this hackathon
+              </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 mt-2">
               <div>
-                <Label htmlFor="title">Prize Title</Label>
+                <Label style={labelStyle}>Prize Title</Label>
                 <Input
-                  id="title"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g., Grand Prize"
                   required
+                  style={{ ...inputStyle, marginTop: '6px' }}
                 />
               </div>
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label style={labelStyle}>Description</Label>
                 <Textarea
-                  id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Prize details and benefits"
+                  placeholder="Prize details and benefits..."
                   rows={3}
                   required
+                  style={{ ...inputStyle, marginTop: '6px' }}
                 />
               </div>
-              <div>
-                <Label htmlFor="amount">Amount/Value</Label>
-                <Input
-                  id="amount"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  placeholder="e.g., $5,000 or Swag Pack"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label style={labelStyle}>Amount</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                    placeholder="5000"
+                    required
+                    style={{ ...inputStyle, marginTop: '6px' }}
+                  />
+                </div>
+                <div>
+                  <Label style={labelStyle}>Currency</Label>
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    style={{ ...inputStyle, width: '100%', padding: '8px 12px', marginTop: '6px' }}
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="CAD">CAD</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="rank">Rank</Label>
-                <Input
-                  id="rank"
-                  type="number"
-                  min="1"
-                  value={formData.rank}
-                  onChange={(e) => setFormData({ ...formData, rank: parseInt(e.target.value) })}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label style={labelStyle}>Rank</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.rank}
+                    onChange={(e) => setFormData({ ...formData, rank: parseInt(e.target.value) || 1 })}
+                    required
+                    style={{ ...inputStyle, marginTop: '6px' }}
+                  />
+                </div>
+                <div>
+                  <Label style={labelStyle}>
+                    Sponsor <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
+                  </Label>
+                  <Input
+                    value={formData.sponsor}
+                    onChange={(e) => setFormData({ ...formData, sponsor: e.target.value })}
+                    placeholder="Sponsor name"
+                    style={{ ...inputStyle, marginTop: '6px' }}
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="track">Track (Optional)</Label>
-                <Select
-                  value={formData.track_id}
-                  onValueChange={(value) => setFormData({ ...formData, track_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a track (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">General Prize</SelectItem>
-                    {tracks.map((track) => (
-                      <SelectItem key={track.track_id} value={track.track_id}>
-                        {track.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-2 pt-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setOpen(false)}
-                  className="flex-1"
+                  style={{
+                    flex: 1,
+                    border: '2px solid var(--ink)',
+                    borderRadius: 0,
+                    background: 'transparent',
+                    color: 'var(--ink)',
+                    fontFamily: 'Archivo, sans-serif',
+                    fontWeight: 700,
+                  }}
                   disabled={createPrize.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
+                  style={{
+                    flex: 1,
+                    background: 'var(--ink)',
+                    color: 'var(--cream)',
+                    border: '2px solid var(--ink)',
+                    borderRadius: 0,
+                    fontFamily: 'Archivo, sans-serif',
+                    fontWeight: 700,
+                  }}
                   disabled={createPrize.isPending}
                 >
                   {createPrize.isPending ? (
@@ -199,16 +286,42 @@ export default function PrizesPage({
       </div>
 
       {sortedPrizes.length === 0 ? (
-        <Card className="border-2 border-dashed">
+        <Card
+          style={{
+            borderRadius: 0,
+            border: '2px dashed var(--ink)',
+            background: 'var(--cream)',
+          }}
+        >
           <CardContent className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center">
-              <Trophy className="h-8 w-8 text-white" />
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: '#f59e0b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}
+            >
+              <Trophy className="h-8 w-8" style={{ color: 'var(--cream)' }} />
             </div>
-            <p className="text-slate-600 mb-4">No prizes added yet</p>
+            <p style={{ color: 'var(--ink)', opacity: 0.6, marginBottom: '1rem' }}>
+              No prizes added yet
+            </p>
             <Button
               onClick={() => setOpen(true)}
               variant="outline"
-              className="border-2"
+              style={{
+                border: '2px solid var(--ink)',
+                borderRadius: 0,
+                background: 'transparent',
+                color: 'var(--ink)',
+                fontFamily: 'Archivo, sans-serif',
+                fontWeight: 700,
+              }}
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Your First Prize
@@ -216,32 +329,81 @@ export default function PrizesPage({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedPrizes.map((prize) => {
-            const track = tracks.find(t => t.track_id === prize.track_id)
+            const accentColor = getRankAccentColor(prize.rank)
+
             return (
-              <Card key={prize.prize_id} className="border-2 hover:shadow-xl transition-all">
+              <Card
+                key={prize.prize_id}
+                style={{
+                  borderRadius: 0,
+                  border: `2px solid ${accentColor}`,
+                  background: 'var(--cream)',
+                }}
+              >
                 <CardHeader>
-                  <div className={`w-16 h-16 mb-3 rounded-xl bg-gradient-to-br ${getRankColor(prize.rank)} flex items-center justify-center shadow-lg`}>
-                    <Trophy className="h-8 w-8 text-white" />
+                  <div
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      background: accentColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <Trophy className="h-6 w-6" style={{ color: 'var(--cream)' }} />
                   </div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-semibold text-slate-600">
-                      {getRankLabel(prize.rank)}
-                    </span>
-                    {track && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                        {track.name}
-                      </span>
+                  <div
+                    style={{
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: accentColor,
+                      marginBottom: '4px',
+                    }}
+                  >
+                    {getRankLabel(prize.rank)}
+                    {prize.sponsor && (
+                      <span style={{ fontWeight: 400, opacity: 0.7 }}> · {prize.sponsor}</span>
                     )}
                   </div>
-                  <CardTitle className="text-xl">{prize.title}</CardTitle>
-                  <div className="text-2xl font-bold text-emerald-600 mt-2">
-                    {prize.amount}
+                  <CardTitle
+                    style={{
+                      fontFamily: 'Archivo, sans-serif',
+                      color: 'var(--ink)',
+                      fontSize: '1.1rem',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    {prize.title}
+                  </CardTitle>
+                  <div
+                    style={{
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: '1.5rem',
+                      fontWeight: 700,
+                      color: '#16a34a',
+                    }}
+                  >
+                    {prize.currency}{' '}
+                    {typeof prize.amount === 'number'
+                      ? prize.amount.toLocaleString()
+                      : prize.amount}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-base">
+                  <CardDescription
+                    style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.875rem',
+                      color: 'var(--ink)',
+                      opacity: 0.7,
+                    }}
+                  >
                     {prize.description}
                   </CardDescription>
                 </CardContent>
