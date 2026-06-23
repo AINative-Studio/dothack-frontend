@@ -1,108 +1,92 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth/auth-context'
+import { useInvitationByToken, useAcceptInvitation, useDeclineInvitation } from '@/hooks/use-api'
 import { InvitationCard } from '@/components/invitations/InvitationCard'
 import { InvitationActions } from '@/components/invitations/InvitationActions'
-import { getInvitationByToken } from '@/lib/api/invitations'
-import type { InvitationDetails } from '@/lib/api/invitations'
-import { useAuth } from '@/lib/auth/auth-context'
 
 export default function InvitationPage() {
   const params = useParams()
   const router = useRouter()
-  const { isAuthenticated, user } = useAuth()
-  const token = params.token as string
+  const { isAuthenticated, user, token: authToken } = useAuth()
+  const invToken = params.token as string
 
-  const [invitation, setInvitation] = useState<InvitationDetails | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: invitation, isLoading, error } = useInvitationByToken(invToken)
+  const acceptMutation = useAcceptInvitation()
+  const declineMutation = useDeclineInvitation()
 
-  useEffect(() => {
-    async function loadInvitation() {
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await getInvitationByToken(token)
-
-        // Check if invitation is expired
-        const expiresAt = new Date(data.expires_at)
-        if (expiresAt < new Date()) {
-          setError('This invitation has expired')
-          setInvitation(data) // Still show the card for context
-          return
-        }
-
-        // Check if already accepted/declined
-        if (data.status !== 'PENDING') {
-          setError(
-            data.status === 'ACCEPTED'
-              ? 'This invitation has already been accepted'
-              : 'This invitation has been declined'
-          )
-          setInvitation(data)
-          return
-        }
-
-        setInvitation(data)
-      } catch (err) {
-        console.error('Error loading invitation:', err)
-        if (err instanceof Error) {
-          if (err.message.includes('not yet implemented')) {
-            setError('The invitation system is not yet available. Please contact the hackathon organizer directly.')
-          } else if (err.message.includes('404') || err.message.includes('not found')) {
-            setError('This invitation link is invalid or has been removed')
-          } else {
-            setError(err.message || 'Failed to load invitation')
-          }
-        } else {
-          setError('Failed to load invitation')
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (token) {
-      loadInvitation()
-    }
-  }, [token])
-
-  if (loading) {
+  // ---------------------------------------------------------------------------
+  // Loading state
+  // ---------------------------------------------------------------------------
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: '#f4f1e8' }}
+      >
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          <p className="mt-4 text-gray-600">Loading invitation...</p>
+          <div
+            className="inline-block h-8 w-8 animate-spin border-4 border-solid border-r-transparent"
+            style={{ borderColor: '#16140f', borderRightColor: 'transparent' }}
+          />
+          <p
+            className="mt-4"
+            style={{ fontFamily: 'Inter, sans-serif', color: '#16140f', opacity: 0.6 }}
+          >
+            Loading invitation...
+          </p>
         </div>
       </div>
     )
   }
 
+  // ---------------------------------------------------------------------------
+  // Hard error — no invitation to show
+  // ---------------------------------------------------------------------------
   if (error && !invitation) {
+    const msg =
+      error instanceof Error
+        ? error.message.includes('404') || error.message.includes('not found')
+          ? 'This invitation link is invalid or has been removed.'
+          : error.message
+        : 'Failed to load invitation.'
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-            <svg
-              className="h-6 w-6 text-red-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: '#f4f1e8' }}
+      >
+        <div
+          className="max-w-md w-full p-8 text-center"
+          style={{ border: '2px solid #16140f', background: '#f4f1e8' }}
+        >
+          <div
+            className="mx-auto flex h-12 w-12 items-center justify-center mb-4"
+            style={{ border: '2px solid #16140f' }}
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#ff4d23' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="mt-4 text-xl font-semibold text-gray-900">Error</h1>
-          <p className="mt-2 text-gray-600">{error}</p>
+          <h1 style={{ fontFamily: 'Archivo, sans-serif', fontSize: '1.25rem', fontWeight: 700, color: '#16140f', marginBottom: '0.5rem' }}>
+            Invalid Invitation
+          </h1>
+          <p style={{ fontFamily: 'Inter, sans-serif', color: '#8c8676', marginBottom: '1.5rem' }}>{msg}</p>
           <button
             onClick={() => router.push('/')}
-            className="mt-6 w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '0.75rem 1.5rem',
+              background: '#ff4d23',
+              color: '#f4f1e8',
+              border: '2px solid #ff4d23',
+              borderRadius: 0,
+              fontFamily: 'Archivo, sans-serif',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
           >
             Go to Home
           </button>
@@ -111,48 +95,67 @@ export default function InvitationPage() {
     )
   }
 
-  const canAcceptInvitation = invitation && !error && invitation.status === 'PENDING'
+  // ---------------------------------------------------------------------------
+  // Status checks
+  // ---------------------------------------------------------------------------
+  const expiresAt = invitation ? new Date(invitation.expires_at) : null
+  const isExpired = expiresAt ? expiresAt < new Date() : false
+  const isPending = invitation?.status === 'PENDING'
+  const canAct = isPending && !isExpired
+
+  const statusWarning = isExpired
+    ? 'This invitation has expired.'
+    : !isPending && invitation?.status === 'ACCEPTED'
+    ? 'This invitation has already been accepted.'
+    : !isPending && invitation?.status === 'DECLINED'
+    ? 'This invitation has been declined.'
+    : null
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        {invitation && <InvitationCard invitation={invitation} />}
+    <div
+      className="min-h-screen py-12 px-4"
+      style={{ background: '#f4f1e8' }}
+    >
+      <div className="max-w-2xl mx-auto">
+        {invitation && (
+          <InvitationCard invitation={invitation} />
+        )}
 
-        {error && invitation && (
-          <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <svg
-                className="h-5 w-5 text-red-400 mt-0.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <p className="ml-3 text-sm text-red-800">{error}</p>
-            </div>
+        {statusWarning && (
+          <div
+            className="mt-6 p-4"
+            style={{ border: '2px solid #16140f', background: '#f4f1e8' }}
+          >
+            <p style={{ fontFamily: 'Inter, sans-serif', color: '#8c8676', fontSize: '0.875rem' }}>
+              {statusWarning}
+            </p>
           </div>
         )}
 
-        {canAcceptInvitation && (
+        {canAct && invitation && (
           <InvitationActions
             invitation={invitation}
-            token={token}
+            invToken={invToken}
             isAuthenticated={isAuthenticated}
             userEmail={user?.email}
+            acceptMutation={acceptMutation}
+            declineMutation={declineMutation}
           />
         )}
 
-        {!canAcceptInvitation && !error && (
+        {!canAct && !statusWarning && (
           <div className="mt-6 text-center">
             <button
               onClick={() => router.push('/')}
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              style={{
+                fontFamily: 'Archivo, sans-serif',
+                fontWeight: 700,
+                color: '#ff4d23',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
             >
               Return to Home
             </button>

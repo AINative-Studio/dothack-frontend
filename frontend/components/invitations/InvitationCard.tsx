@@ -1,24 +1,18 @@
 'use client'
 
-import { format } from 'date-fns'
-import type { InvitationDetails } from '@/lib/api/invitations'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
 interface InvitationCardProps {
-  invitation: InvitationDetails
+  invitation: any
 }
 
 export function InvitationCard({ invitation }: InvitationCardProps) {
   const expiresAt = new Date(invitation.expires_at)
   const now = new Date()
 
-  // Check if same calendar day
   const isSameDay =
     expiresAt.getFullYear() === now.getFullYear() &&
     expiresAt.getMonth() === now.getMonth() &&
     expiresAt.getDate() === now.getDate()
 
-  // Check if tomorrow
   const tomorrow = new Date(now)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const isTomorrow =
@@ -37,138 +31,168 @@ export function InvitationCard({ invitation }: InvitationCardProps) {
     ? 'Expires tomorrow'
     : `Expires in ${daysUntilExpiry} days`
 
-  const roleColors = {
-    BUILDER: 'bg-blue-100 text-blue-800',
-    ORGANIZER: 'bg-purple-100 text-purple-800',
-    JUDGE: 'bg-green-100 text-green-800',
-    MENTOR: 'bg-yellow-100 text-yellow-800',
+  const roleLabelColors: Record<string, { bg: string; color: string }> = {
+    BUILDER: { bg: '#16140f', color: '#f4f1e8' },
+    ORGANIZER: { bg: '#ff4d23', color: '#f4f1e8' },
+    JUDGE: { bg: '#f4f1e8', color: '#16140f' },
+    MENTOR: { bg: '#8c8676', color: '#f4f1e8' },
   }
+  const roleStyle = roleLabelColors[invitation.role] ?? { bg: '#16140f', color: '#f4f1e8' }
+
+  const hackathonName =
+    invitation.hackathon_name ?? invitation.hackathon?.name ?? 'Hackathon'
+  const hackathonDesc =
+    invitation.hackathon_description ?? invitation.hackathon?.description
+  const inviterName = invitation.inviter_name ?? invitation.invited_by ?? 'Organizer'
+  const inviterEmail = invitation.inviter_email
+  const inviteeEmail = invitation.invitee_email ?? invitation.email
+  const customMessage = invitation.custom_message
+  const startAt = invitation.hackathon_start_at ?? invitation.hackathon?.start_date
+  const endAt = invitation.hackathon_end_at ?? invitation.hackathon?.end_date
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader className="text-center space-y-4">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-          <svg
-            className="h-8 w-8 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
+    <div style={{ border: '2px solid #16140f', background: '#f4f1e8' }}>
+      {/* Header band */}
+      <div
+        style={{
+          background: '#16140f',
+          padding: '2rem',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '3.5rem',
+            height: '3.5rem',
+            border: '2px solid #f4f1e8',
+            marginBottom: '1rem',
+          }}
+        >
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#f4f1e8" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <div>
-          <CardTitle className="text-2xl">You're Invited!</CardTitle>
-          <CardDescription className="text-base mt-2">
-            {invitation.inviter_name} has invited you to join
-          </CardDescription>
-        </div>
-      </CardHeader>
+        <p style={{ fontFamily: 'Inter, sans-serif', color: '#8c8676', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+          {inviterName} has invited you to join
+        </p>
+        <h1 style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 900, fontSize: '1.75rem', color: '#f4f1e8', margin: 0 }}>
+          {hackathonName}
+        </h1>
+      </div>
 
-      <CardContent className="space-y-6">
-        {/* Hackathon Name */}
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">
-            {invitation.hackathon_name}
-          </h2>
-        </div>
-
-        {/* Role Badge */}
-        <div className="flex justify-center">
-          <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${roleColors[invitation.role]}`}>
-            Role: {invitation.role}
+      {/* Body */}
+      <div style={{ padding: '2rem' }}>
+        {/* Role badge */}
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '0.375rem 1rem',
+              background: roleStyle.bg,
+              color: roleStyle.color,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              border: '2px solid #16140f',
+            }}
+          >
+            ROLE: {invitation.role}
           </span>
         </div>
 
-        {/* Description */}
-        {invitation.hackathon_description && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <p className="text-gray-700 text-center">
-              {invitation.hackathon_description}
+        {/* Hackathon description */}
+        {hackathonDesc && (
+          <p
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              color: '#8c8676',
+              fontSize: '0.875rem',
+              lineHeight: 1.6,
+              textAlign: 'center',
+              marginBottom: '1.5rem',
+            }}
+          >
+            {hackathonDesc}
+          </p>
+        )}
+
+        {/* Custom message */}
+        {customMessage && (
+          <div
+            style={{
+              borderLeft: '4px solid #ff4d23',
+              paddingLeft: '1rem',
+              marginBottom: '1.5rem',
+            }}
+          >
+            <p style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: '#16140f', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+              Message from {inviterName}:
+            </p>
+            <p style={{ fontFamily: 'Inter, sans-serif', color: '#16140f', fontStyle: 'italic', fontSize: '0.875rem' }}>
+              "{customMessage}"
             </p>
           </div>
         )}
 
-        {/* Custom Message */}
-        {invitation.custom_message && (
-          <div className="border-l-4 border-blue-500 bg-blue-50 p-4">
-            <p className="text-sm font-medium text-blue-900 mb-1">Message from {invitation.inviter_name}:</p>
-            <p className="text-blue-800 italic">
-              "{invitation.custom_message}"
-            </p>
-          </div>
-        )}
-
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Dates */}
-          {invitation.hackathon_start_at && invitation.hackathon_end_at && (
-            <div className="bg-white border rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="h-5 w-5 text-gray-400 mt-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">Dates</p>
-                  <p className="text-sm text-gray-600">
-                    {format(new Date(invitation.hackathon_start_at), 'MMM d, yyyy')}
-                    {' - '}
-                    {format(new Date(invitation.hackathon_end_at), 'MMM d, yyyy')}
-                  </p>
-                </div>
-              </div>
+        {/* Detail grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+          {startAt && endAt && (
+            <div style={{ border: '2px solid #16140f', padding: '0.875rem' }}>
+              <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', color: '#8c8676', marginBottom: '0.25rem', letterSpacing: '0.08em' }}>
+                DATES
+              </p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: '#16140f' }}>
+                {fmt(startAt)} – {fmt(endAt)}
+              </p>
             </div>
           )}
-
-          {/* Expiration */}
-          <div className="bg-white border rounded-lg p-4">
-            <div className="flex items-start space-x-3">
-              <svg
-                className={`h-5 w-5 mt-0.5 ${isExpired ? 'text-red-400' : 'text-gray-400'}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Invitation</p>
-                <p className={`text-sm ${isExpired ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
-                  {expiryText}
-                </p>
-              </div>
-            </div>
+          <div style={{ border: `2px solid ${isExpired ? '#ff4d23' : '#16140f'}`, padding: '0.875rem' }}>
+            <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', color: '#8c8676', marginBottom: '0.25rem', letterSpacing: '0.08em' }}>
+              INVITATION
+            </p>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: isExpired ? '#ff4d23' : '#16140f', fontWeight: isExpired ? 700 : 400 }}>
+              {expiryText}
+            </p>
           </div>
         </div>
 
-        {/* Invitee Info */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-            <span>Invited as:</span>
-            <span className="font-medium text-gray-900">{invitation.invitee_email}</span>
+        {/* Invitee */}
+        {inviteeEmail && (
+          <div
+            style={{
+              background: '#eae7de',
+              border: '2px solid #16140f',
+              padding: '0.75rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: '#8c8676' }}>Invited as:</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: '#16140f', fontWeight: 700 }}>
+              {inviteeEmail}
+            </span>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+
+        {/* Inviter contact */}
+        {inviterEmail && (
+          <p style={{ textAlign: 'center', marginTop: '1rem', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: '#8c8676' }}>
+            Questions?{' '}
+            <a href={`mailto:${inviterEmail}`} style={{ color: '#ff4d23', textDecoration: 'none', fontWeight: 700 }}>
+              Contact {inviterName}
+            </a>
+          </p>
+        )}
+      </div>
+    </div>
   )
 }

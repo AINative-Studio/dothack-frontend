@@ -30,6 +30,8 @@ const NAV_SECTIONS = [
     items: [
       { href: '/api-settings', label: 'API Keys' },
       { href: '/hackathons', label: 'Payments' },
+      { href: '/featured', label: 'Featured' },
+      { href: '/themes', label: 'Themes' },
     ],
   },
 ]

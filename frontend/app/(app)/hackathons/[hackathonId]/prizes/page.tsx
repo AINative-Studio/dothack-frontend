@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,33 +8,17 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useHackathon, usePrizes, useCreatePrize } from '@/hooks/use-api'
-import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
 import { Trophy, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Track } from '@/lib/types'
-import type { CreatePrizeInput } from '@/lib/api/hackathons-backend'
 
 export default function PrizesPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { token } = useAuth()
-
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
   const { data: prizesData, isLoading: prizesLoading } = usePrizes(params.hackathonId)
   const createPrize = useCreatePrize()
-
-  // Tracks for optional track association
-  const { data: tracks = [], isLoading: tracksLoading } = useQuery<Track[]>({
-    queryKey: ['dothack', 'tracks', params.hackathonId],
-    queryFn: () =>
-      apiClient<Track[]>(`/hackathons/${params.hackathonId}/tracks`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
 
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState({
@@ -75,7 +58,7 @@ export default function PrizesPage({
     }
   }
 
-  if (hackathonLoading || prizesLoading || tracksLoading) {
+  if (hackathonLoading || prizesLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-12">

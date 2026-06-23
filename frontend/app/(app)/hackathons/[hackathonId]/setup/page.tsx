@@ -1,88 +1,52 @@
 "use client"
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { useHackathon, useUpdateHackathon } from '@/hooks/use-api'
-import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
+import {
+  useHackathon,
+  useUpdateHackathon,
+  useTracks,
+  useCreateTrack,
+  useRubrics,
+  useCreateRubric,
+} from '@/hooks/use-api'
+import type { HackathonStatus } from '@/lib/api/hackathons-backend'
 import { Plus, Loader2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Track, Rubric } from '@/lib/types'
-import type { HackathonStatus } from '@/lib/api/hackathons-backend'
 
 export default function SetupPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { token } = useAuth()
-  const queryClient = useQueryClient()
-
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
+  const { data: tracksData, isLoading: tracksLoading } = useTracks(params.hackathonId)
+  const { data: rubricsData, isLoading: rubricsLoading } = useRubrics(params.hackathonId)
+
   const updateHackathon = useUpdateHackathon()
-
-  // Tracks via apiClient — no dedicated hook in use-api.ts yet
-  const { data: tracks = [], isLoading: tracksLoading } = useQuery<Track[]>({
-    queryKey: ['dothack', 'tracks', params.hackathonId],
-    queryFn: () =>
-      apiClient<Track[]>(`/hackathons/${params.hackathonId}/tracks`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
-
-  // Rubrics via apiClient — no dedicated hook in use-api.ts yet
-  const { data: rubrics = [], isLoading: rubricsLoading } = useQuery<Rubric[]>({
-    queryKey: ['dothack', 'rubrics', params.hackathonId],
-    queryFn: () =>
-      apiClient<Rubric[]>(`/hackathons/${params.hackathonId}/rubrics`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
-
-  const createTrack = useMutation({
-    mutationFn: (data: { name: string; description: string }) =>
-      apiClient<Track>(`/hackathons/${params.hackathonId}/tracks`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        token: token!,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'tracks', params.hackathonId] })
-    },
-  })
-
-  const createRubric = useMutation({
-    mutationFn: (data: { title: string; criteria: unknown }) =>
-      apiClient<Rubric>(`/hackathons/${params.hackathonId}/rubrics`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        token: token!,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'rubrics', params.hackathonId] })
-    },
-  })
+  const createTrack = useCreateTrack(params.hackathonId)
+  const createRubric = useCreateRubric(params.hackathonId)
 
   const [showTrackForm, setShowTrackForm] = useState(false)
   const [trackData, setTrackData] = useState({ name: '', description: '' })
 
   const [showRubricForm, setShowRubricForm] = useState(false)
-  const [rubricData, setRubricData] = useState({ title: '', criteria_json: '' })
+  const [rubricData, setRubricData] = useState({
+    name: '',
+    criteria_json: '',
+    is_active: true,
+  })
 
   const handleAddTrack = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       await createTrack.mutateAsync({
         name: trackData.name,
-        description: trackData.description,
+        description: trackData.description || null,
       })
       toast.success('Track created successfully')
       setTrackData({ name: '', description: '' })
@@ -98,16 +62,21 @@ export default function SetupPage({
   const handleAddRubric = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      let criteria: unknown
+      let criteria: { name: string; description: string; max_score: number; weight: number }[]
       try {
         criteria = JSON.parse(rubricData.criteria_json)
+        if (!Array.isArray(criteria)) throw new Error('Criteria must be an array')
       } catch {
-        toast.error('Invalid JSON format for criteria')
+        toast.error('Invalid JSON: criteria must be an array of criterion objects')
         return
       }
-      await createRubric.mutateAsync({ title: rubricData.title, criteria })
+      await createRubric.mutateAsync({
+        name: rubricData.name,
+        criteria,
+        is_active: rubricData.is_active,
+      })
       toast.success('Rubric created successfully')
-      setRubricData({ title: '', criteria_json: '' })
+      setRubricData({ name: '', criteria_json: '', is_active: true })
       setShowRubricForm(false)
     } catch (error) {
       console.error('Failed to create rubric:', error)
@@ -151,15 +120,22 @@ export default function SetupPage({
     )
   }
 
-  const getStatusStyle = (status: string, isActive: boolean) => ({
-    border: `2px solid var(--ink)`,
+  const tracks = tracksData?.tracks ?? []
+  const rubrics = rubricsData?.rubrics ?? []
+
+  const inputStyle = {
+    border: '2px solid var(--ink)',
     borderRadius: 0,
-    background: isActive ? 'var(--ink)' : 'transparent',
-    color: isActive ? 'var(--cream)' : 'var(--ink)',
+    background: 'var(--cream)',
+    color: 'var(--ink)',
+    fontFamily: 'Inter, sans-serif',
+  }
+
+  const labelStyle = {
     fontFamily: 'Archivo, sans-serif',
-    fontWeight: 700,
-    fontSize: '0.85rem',
-  })
+    fontWeight: 700 as const,
+    color: 'var(--ink)',
+  }
 
   return (
     <div className="container mx-auto px-4 py-8" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -197,10 +173,9 @@ export default function SetupPage({
                   fontSize: '0.75rem',
                   fontWeight: 700,
                   padding: '4px 10px',
-                  border: '2px solid var(--ink)',
-                  color: 'var(--ink)',
-                  background: 'var(--cream)',
-                  textTransform: 'uppercase',
+                  border: '2px solid var(--accent)',
+                  color: 'var(--accent)',
+                  textTransform: 'uppercase' as const,
                 }}
               >
                 {hackathon.status}
@@ -219,21 +194,28 @@ export default function SetupPage({
               Status changes control participant access and submission windows.
             </p>
             <div className="flex gap-2 flex-wrap">
-              {(['draft', 'active', 'judging', 'completed'] as HackathonStatus[]).map((s) => (
-                <Button
-                  key={s}
-                  size="sm"
-                  onClick={() => handleStatusChange(s)}
-                  disabled={updateHackathon.isPending || hackathon.status === s}
-                  style={getStatusStyle(s, hackathon.status === s)}
-                >
-                  {updateHackathon.isPending && hackathon.status !== s ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    s.charAt(0).toUpperCase() + s.slice(1)
-                  )}
-                </Button>
-              ))}
+              {(['draft', 'active', 'judging', 'completed'] as HackathonStatus[]).map((s) => {
+                const isActive = hackathon.status === s
+                return (
+                  <Button
+                    key={s}
+                    size="sm"
+                    onClick={() => handleStatusChange(s)}
+                    disabled={updateHackathon.isPending || isActive}
+                    style={{
+                      border: '2px solid var(--ink)',
+                      borderRadius: 0,
+                      background: isActive ? 'var(--ink)' : 'transparent',
+                      color: isActive ? 'var(--cream)' : 'var(--ink)',
+                      fontFamily: 'Archivo, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </Button>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -279,43 +261,24 @@ export default function SetupPage({
                 style={{ padding: '16px', border: '1px solid var(--ink)' }}
               >
                 <div className="space-y-2">
-                  <Label
-                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
-                  >
-                    Name
-                  </Label>
+                  <Label style={labelStyle}>Name</Label>
                   <Input
                     placeholder="AI & Machine Learning"
                     value={trackData.name}
                     onChange={(e) => setTrackData({ ...trackData, name: e.target.value })}
                     required
-                    style={{
-                      border: '2px solid var(--ink)',
-                      borderRadius: 0,
-                      background: 'var(--cream)',
-                      color: 'var(--ink)',
-                      fontFamily: 'Inter, sans-serif',
-                    }}
+                    style={inputStyle}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label
-                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
-                  >
-                    Description
+                  <Label style={labelStyle}>
+                    Description <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
                   </Label>
                   <Textarea
                     placeholder="Projects using AI/ML technologies..."
                     value={trackData.description}
                     onChange={(e) => setTrackData({ ...trackData, description: e.target.value })}
-                    required
-                    style={{
-                      border: '2px solid var(--ink)',
-                      borderRadius: 0,
-                      background: 'var(--cream)',
-                      color: 'var(--ink)',
-                      fontFamily: 'Inter, sans-serif',
-                    }}
+                    style={inputStyle}
                   />
                 </div>
                 <div className="flex gap-2">
@@ -371,7 +334,11 @@ export default function SetupPage({
                 {tracks.map((track) => (
                   <div
                     key={track.track_id}
-                    style={{ padding: '12px', border: '1px solid var(--ink)', background: 'rgba(0,0,0,0.02)' }}
+                    style={{
+                      padding: '12px',
+                      border: '1px solid var(--ink)',
+                      background: 'rgba(0,0,0,0.02)',
+                    }}
                   >
                     <h4
                       style={{
@@ -383,9 +350,11 @@ export default function SetupPage({
                     >
                       {track.name}
                     </h4>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--ink)', opacity: 0.6 }}>
-                      {track.description}
-                    </p>
+                    {track.description && (
+                      <p style={{ fontSize: '0.875rem', color: 'var(--ink)', opacity: 0.6 }}>
+                        {track.description}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -434,42 +403,31 @@ export default function SetupPage({
                 style={{ padding: '16px', border: '1px solid var(--ink)' }}
               >
                 <div className="space-y-2">
-                  <Label
-                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
-                  >
-                    Title
-                  </Label>
+                  <Label style={labelStyle}>Rubric Name</Label>
                   <Input
-                    placeholder="Main Rubric"
-                    value={rubricData.title}
-                    onChange={(e) => setRubricData({ ...rubricData, title: e.target.value })}
+                    placeholder="Main Judging Rubric"
+                    value={rubricData.name}
+                    onChange={(e) => setRubricData({ ...rubricData, name: e.target.value })}
                     required
-                    style={{
-                      border: '2px solid var(--ink)',
-                      borderRadius: 0,
-                      background: 'var(--cream)',
-                      color: 'var(--ink)',
-                      fontFamily: 'Inter, sans-serif',
-                    }}
+                    style={inputStyle}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label
-                    style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
-                  >
-                    Criteria (JSON)
-                  </Label>
+                  <Label style={labelStyle}>Criteria (JSON Array)</Label>
                   <Textarea
-                    placeholder='{"innovation": {"weight": 30, "max": 10}, "execution": {"weight": 40, "max": 10}}'
+                    placeholder={`[
+  { "name": "Innovation", "description": "How novel is the idea?", "max_score": 10, "weight": 0.3 },
+  { "name": "Execution", "description": "How well is it built?", "max_score": 10, "weight": 0.4 },
+  { "name": "Impact", "description": "What is the potential impact?", "max_score": 10, "weight": 0.3 }
+]`}
                     value={rubricData.criteria_json}
-                    onChange={(e) => setRubricData({ ...rubricData, criteria_json: e.target.value })}
-                    rows={6}
+                    onChange={(e) =>
+                      setRubricData({ ...rubricData, criteria_json: e.target.value })
+                    }
+                    rows={8}
                     required
                     style={{
-                      border: '2px solid var(--ink)',
-                      borderRadius: 0,
-                      background: 'var(--cream)',
-                      color: 'var(--ink)',
+                      ...inputStyle,
                       fontFamily: 'JetBrains Mono, monospace',
                       fontSize: '0.8rem',
                     }}
@@ -482,8 +440,26 @@ export default function SetupPage({
                       fontFamily: 'Inter, sans-serif',
                     }}
                   >
-                    Enter criteria as JSON with weights and max scores
+                    Array of objects with: name, description, max_score, weight (weights should sum
+                    to 1.0)
                   </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={rubricData.is_active}
+                    onChange={(e) =>
+                      setRubricData({ ...rubricData, is_active: e.target.checked })
+                    }
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+                  />
+                  <Label
+                    htmlFor="is_active"
+                    style={{ ...labelStyle, cursor: 'pointer', fontSize: '0.875rem' }}
+                  >
+                    Set as active rubric
+                  </Label>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -534,37 +510,63 @@ export default function SetupPage({
                 No rubrics yet
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {rubrics.map((rubric) => (
                   <div
                     key={rubric.rubric_id}
-                    style={{ padding: '12px', border: '1px solid var(--ink)', background: 'rgba(0,0,0,0.02)' }}
+                    style={{
+                      padding: '12px',
+                      border: rubric.is_active
+                        ? '2px solid var(--accent)'
+                        : '1px solid var(--ink)',
+                      background: 'rgba(0,0,0,0.02)',
+                    }}
                   >
-                    <h4
-                      style={{
-                        fontFamily: 'Archivo, sans-serif',
-                        fontWeight: 700,
-                        color: 'var(--ink)',
-                        marginBottom: '8px',
-                      }}
-                    >
-                      {rubric.title}
-                    </h4>
-                    <pre
-                      style={{
-                        fontFamily: 'JetBrains Mono, monospace',
-                        fontSize: '0.75rem',
-                        color: 'var(--ink)',
-                        opacity: 0.8,
-                        background: 'rgba(0,0,0,0.03)',
-                        padding: '8px',
-                        overflowX: 'auto',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {rubric.criteria_json}
-                    </pre>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4
+                        style={{
+                          fontFamily: 'Archivo, sans-serif',
+                          fontWeight: 700,
+                          color: 'var(--ink)',
+                        }}
+                      >
+                        {rubric.name}
+                      </h4>
+                      {rubric.is_active && (
+                        <span
+                          style={{
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            border: '2px solid var(--accent)',
+                            color: 'var(--accent)',
+                          }}
+                        >
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {rubric.criteria.map((criterion, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between"
+                          style={{
+                            fontSize: '0.8rem',
+                            fontFamily: 'Inter, sans-serif',
+                            color: 'var(--ink)',
+                            padding: '4px 8px',
+                            background: 'rgba(0,0,0,0.03)',
+                          }}
+                        >
+                          <span style={{ fontWeight: 600 }}>{criterion.name}</span>
+                          <span style={{ opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' }}>
+                            max {criterion.max_score} · weight {(criterion.weight * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

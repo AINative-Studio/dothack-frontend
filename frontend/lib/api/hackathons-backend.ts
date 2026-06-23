@@ -722,3 +722,122 @@ export async function exportHackathonData(
     { token }
   )
 }
+
+// ---------------------------------------------------------------------------
+// Featured Hackathons
+// ---------------------------------------------------------------------------
+
+export async function listFeaturedHackathons(authToken?: string) {
+  return apiClient<any>('/featured-hackathons', { token: authToken })
+}
+export async function createFeaturedHackathon(body: any, authToken?: string) {
+  return apiClient<any>('/featured-hackathons', { method: 'POST', body: JSON.stringify(body), token: authToken })
+}
+export async function updateFeaturedHackathon(id: string, body: any, authToken?: string) {
+  return apiClient<any>(`/featured-hackathons/${id}`, { method: 'PUT', body: JSON.stringify(body), token: authToken })
+}
+export async function deleteFeaturedHackathon(id: string, authToken?: string) {
+  return apiClient<any>(`/featured-hackathons/${id}`, { method: 'DELETE', token: authToken })
+}
+export async function reorderFeaturedHackathon(id: string, order: number, authToken?: string) {
+  return apiClient<any>(`/featured-hackathons/${id}/order`, { method: 'PATCH', body: JSON.stringify({ display_order: order }), token: authToken })
+}
+
+// ---------------------------------------------------------------------------
+// Hackathon Themes
+// ---------------------------------------------------------------------------
+
+export async function listThemes(authToken?: string) {
+  return apiClient<any>('/hackathon-themes', { token: authToken })
+}
+export async function createTheme(body: any, authToken?: string) {
+  return apiClient<any>('/hackathon-themes', { method: 'POST', body: JSON.stringify(body), token: authToken })
+}
+export async function updateTheme(id: string, body: any, authToken?: string) {
+  return apiClient<any>(`/hackathon-themes/${id}`, { method: 'PUT', body: JSON.stringify(body), token: authToken })
+}
+export async function deleteTheme(id: string, authToken?: string) {
+  return apiClient<any>(`/hackathon-themes/${id}`, { method: 'DELETE', token: authToken })
+}
+export async function reorderTheme(id: string, order: number, authToken?: string) {
+  return apiClient<any>(`/hackathon-themes/${id}/order`, { method: 'PATCH', body: JSON.stringify({ display_order: order }), token: authToken })
+}
+
+// ---------------------------------------------------------------------------
+// Invitation Token Operations
+// ---------------------------------------------------------------------------
+
+/** GET /invitations/token/:token */
+export async function getInvitationByToken(token: string, authToken?: string) {
+  return apiClient<any>(`/invitations/token/${token}`, { token: authToken })
+}
+
+/** POST /invitations/accept */
+export async function acceptInvitation(
+  invToken: string,
+  body: { email: string; name?: string },
+  authToken?: string
+) {
+  return apiClient<any>('/invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify({ token: invToken, ...body }),
+    token: authToken,
+  })
+}
+
+/** POST /invitations/decline */
+export async function declineInvitation(
+  invToken: string,
+  body: { token: string },
+  authToken?: string
+) {
+  return apiClient<any>('/invitations/decline', {
+    method: 'POST',
+    body: JSON.stringify({ token: invToken }),
+    token: authToken,
+  })
+}
+
+/** POST /invitations/:id/resend */
+export async function resendInvitation(id: string, authToken?: string) {
+  return apiClient<any>(`/invitations/${id}/resend`, { method: 'POST', token: authToken })
+}
+
+// ---------------------------------------------------------------------------
+// File Operations
+// ---------------------------------------------------------------------------
+
+/** POST /files/submissions/:submissionId/files  (multipart) */
+export async function uploadSubmissionFile(
+  submissionId: string,
+  file: File,
+  authToken?: string
+) {
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API_URL}/files/submissions/${submissionId}/files`, {
+    method: 'POST',
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    body: formData,
+  })
+  if (!res.ok) throw new Error('Upload failed')
+  return res.json()
+}
+
+/** GET /files/:fileId/download */
+export async function downloadFile(fileId: string, authToken?: string) {
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
+  const res = await fetch(`${API_URL}/files/${fileId}/download`, {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+  })
+  if (!res.ok) throw new Error('Download failed')
+  return res.blob()
+}
+
+/** DELETE /files/:fileId */
+export async function deleteFile(fileId: string, authToken?: string) {
+  return apiClient<any>(`/files/${fileId}`, { method: 'DELETE', token: authToken })
+}

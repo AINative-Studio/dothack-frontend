@@ -1,42 +1,46 @@
 "use client"
 
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { useHackathon, useParticipants, useInviteJudges } from '@/hooks/use-api'
-import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
-import { Plus, Mail, Loader2, Users } from 'lucide-react'
+import {
+  useHackathon,
+  useParticipants,
+  useInviteJudges,
+  useInvitations,
+  useCreateInvitation,
+} from '@/hooks/use-api'
+import { Mail, Loader2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Participant } from '@/lib/api/hackathons-backend'
+import type { InvitationRole } from '@/lib/api/hackathons-backend'
 
 export default function ParticipantsPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { token } = useAuth()
-  const queryClient = useQueryClient()
-
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
-  const { data: participantsData, isLoading: participantsLoading } = useParticipants(params.hackathonId)
-  const inviteJudges = useInviteJudges()
+  const { data: participantsData, isLoading: participantsLoading } = useParticipants(
+    params.hackathonId
+  )
+  const { data: invitationsData, isLoading: invitationsLoading } = useInvitations(
+    params.hackathonId
+  )
 
-  // Invite dialog state — uses useInviteJudges (emails-based bulk invite)
+  const inviteJudges = useInviteJudges()
+  const createInvitation = useCreateInvitation(params.hackathonId)
+
   const [showInviteDialog, setShowInviteDialog] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteEmails, setInviteEmails] = useState('')
+  const [inviteRole, setInviteRole] = useState<InvitationRole>('JUDGE')
   const [roleFilter, setRoleFilter] = useState<Participant['role'] | 'ALL'>('ALL')
 
-  if (hackathonLoading || participantsLoading) {
+  if (hackathonLoading || participantsLoading || invitationsLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-12">
@@ -55,21 +59,25 @@ export default function ParticipantsPage({
   }
 
   const allParticipants = participantsData?.participants ?? []
+  const invitations = invitationsData?.invitations ?? []
 
   const filteredParticipants =
     roleFilter === 'ALL'
       ? allParticipants
       : allParticipants.filter((p) => p.role === roleFilter)
 
-  const judges = allParticipants.filter((p) => p.role === 'JUDGE')
-  const builders = allParticipants.filter((p) => p.role === 'BUILDER')
-  const mentors = allParticipants.filter((p) => p.role === 'MENTOR')
-  const organizers = allParticipants.filter((p) => p.role === 'ORGANIZER')
+  const counts = {
+    ALL: allParticipants.length,
+    BUILDER: allParticipants.filter((p) => p.role === 'BUILDER').length,
+    JUDGE: allParticipants.filter((p) => p.role === 'JUDGE').length,
+    MENTOR: allParticipants.filter((p) => p.role === 'MENTOR').length,
+    ORGANIZER: allParticipants.filter((p) => p.role === 'ORGANIZER').length,
+  }
 
-  const handleInviteJudge = async (e: React.FormEvent) => {
+  const handleSendInvitation = async (e: React.FormEvent) => {
     e.preventDefault()
-    const emails = inviteEmail
-      .split(',')
+    const emails = inviteEmails
+      .split(/[\n,]/)
       .map((e) => e.trim())
       .filter(Boolean)
 
@@ -79,9 +87,13 @@ export default function ParticipantsPage({
     }
 
     try {
-      await inviteJudges.mutateAsync({ hackathonId: params.hackathonId, emails })
-      toast.success(`Invitation sent to ${emails.length} judge${emails.length !== 1 ? 's' : ''}`)
-      setInviteEmail('')
+      // Use createInvitation which supports multiple emails and roles
+      await createInvitation.mutateAsync({ emails, role: inviteRole })
+      toast.success(
+        `Invitation sent to ${emails.length} ${inviteRole.toLowerCase()}${emails.length !== 1 ? 's' : ''}`
+      )
+      setInviteEmails('')
+      setInviteRole('JUDGE')
       setShowInviteDialog(false)
     } catch (error) {
       console.error('Failed to send invitation:', error)
@@ -91,14 +103,24 @@ export default function ParticipantsPage({
     }
   }
 
-  const getRoleBadgeStyle = (role: string) => {
-    const colors: Record<string, { border: string; color: string }> = {
-      ORGANIZER: { border: 'var(--accent)', color: 'var(--accent)' },
-      JUDGE: { border: '#7c3aed', color: '#7c3aed' },
-      MENTOR: { border: '#059669', color: '#059669' },
-      BUILDER: { border: 'var(--ink)', color: 'var(--ink)' },
+  const getRoleStyle = (role: string) => {
+    const map: Record<string, string> = {
+      ORGANIZER: 'var(--accent)',
+      JUDGE: '#7c3aed',
+      MENTOR: '#059669',
+      BUILDER: 'var(--ink)',
     }
-    return colors[role] ?? { border: 'var(--ink)', color: 'var(--ink)' }
+    return map[role] ?? 'var(--ink)'
+  }
+
+  const getInvitationStatusStyle = (status: string) => {
+    switch (status) {
+      case 'PENDING': return '#d97706'
+      case 'ACCEPTED': return '#16a34a'
+      case 'DECLINED': return '#dc2626'
+      case 'EXPIRED': return '#6b7280'
+      default: return 'var(--ink)'
+    }
   }
 
   return (
@@ -113,6 +135,7 @@ export default function ParticipantsPage({
           </h1>
           <p style={{ color: 'var(--ink)', opacity: 0.6 }}>{hackathon.name}</p>
         </div>
+
         <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
           <DialogTrigger asChild>
             <Button
@@ -126,7 +149,7 @@ export default function ParticipantsPage({
               }}
             >
               <Mail className="h-4 w-4 mr-2" />
-              Invite Judges
+              Send Invitations
             </Button>
           </DialogTrigger>
           <DialogContent
@@ -139,32 +162,69 @@ export default function ParticipantsPage({
           >
             <DialogHeader>
               <DialogTitle style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)' }}>
-                Invite Judges
+                Send Invitations
               </DialogTitle>
               <DialogDescription style={{ color: 'var(--ink)', opacity: 0.6 }}>
-                Send judge invitations by email. Separate multiple emails with commas.
+                Invite judges, mentors, or builders. Separate multiple emails with commas or
+                newlines.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleInviteJudge} className="space-y-4 mt-2">
+            <form onSubmit={handleSendInvitation} className="space-y-4 mt-2">
               <div>
                 <Label
-                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
-                >
-                  Email Address(es)
-                </Label>
-                <Textarea
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="judge@example.com, another@example.com"
-                  rows={3}
-                  required
                   style={{
+                    fontFamily: 'Archivo, sans-serif',
+                    fontWeight: 700,
+                    color: 'var(--ink)',
+                  }}
+                >
+                  Role
+                </Label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as InvitationRole)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
                     border: '2px solid var(--ink)',
                     borderRadius: 0,
                     background: 'var(--cream)',
                     color: 'var(--ink)',
                     fontFamily: 'Inter, sans-serif',
                     marginTop: '6px',
+                  }}
+                >
+                  <option value="JUDGE">Judge</option>
+                  <option value="MENTOR">Mentor</option>
+                  <option value="BUILDER">Builder</option>
+                </select>
+              </div>
+              <div>
+                <Label
+                  style={{
+                    fontFamily: 'Archivo, sans-serif',
+                    fontWeight: 700,
+                    color: 'var(--ink)',
+                  }}
+                >
+                  Email Addresses
+                </Label>
+                <textarea
+                  value={inviteEmails}
+                  onChange={(e) => setInviteEmails(e.target.value)}
+                  placeholder={'judge@example.com\nanother@example.com'}
+                  rows={4}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '2px solid var(--ink)',
+                    borderRadius: 0,
+                    background: 'var(--cream)',
+                    color: 'var(--ink)',
+                    fontFamily: 'Inter, sans-serif',
+                    marginTop: '6px',
+                    resize: 'vertical',
                   }}
                 />
               </div>
@@ -182,7 +242,7 @@ export default function ParticipantsPage({
                     fontFamily: 'Archivo, sans-serif',
                     fontWeight: 700,
                   }}
-                  disabled={inviteJudges.isPending}
+                  disabled={createInvitation.isPending}
                 >
                   Cancel
                 </Button>
@@ -197,15 +257,15 @@ export default function ParticipantsPage({
                     fontFamily: 'Archivo, sans-serif',
                     fontWeight: 700,
                   }}
-                  disabled={inviteJudges.isPending}
+                  disabled={createInvitation.isPending}
                 >
-                  {inviteJudges.isPending ? (
+                  {createInvitation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Sending...
                     </>
                   ) : (
-                    'Send Invites'
+                    'Send Invitations'
                   )}
                 </Button>
               </div>
@@ -214,55 +274,62 @@ export default function ParticipantsPage({
         </Dialog>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {[
-          { label: 'Total', count: allParticipants.length, role: 'ALL' as const },
-          { label: 'Builders', count: builders.length, role: 'BUILDER' as const },
-          { label: 'Judges', count: judges.length, role: 'JUDGE' as const },
-          { label: 'Mentors', count: mentors.length, role: 'MENTOR' as const },
-        ].map(({ label, count, role }) => (
-          <button
-            key={label}
-            onClick={() => setRoleFilter(role)}
-            style={{
-              border: `2px solid ${roleFilter === role ? 'var(--accent)' : 'var(--ink)'}`,
-              background: roleFilter === role ? 'var(--ink)' : 'var(--cream)',
-              color: roleFilter === role ? 'var(--cream)' : 'var(--ink)',
-              padding: '12px 16px',
-              cursor: 'pointer',
-              textAlign: 'left',
-              borderRadius: 0,
-              transition: 'all 0.1s',
-            }}
-          >
-            <div
+      {/* Role filter stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        {(
+          [
+            { label: 'Total', role: 'ALL' as const },
+            { label: 'Builders', role: 'BUILDER' as Participant['role'] },
+            { label: 'Judges', role: 'JUDGE' as Participant['role'] },
+            { label: 'Mentors', role: 'MENTOR' as Participant['role'] },
+            { label: 'Organizers', role: 'ORGANIZER' as Participant['role'] },
+          ] as Array<{ label: string; role: Participant['role'] | 'ALL' }>
+        ).map(({ label, role }) => {
+          const isActive = roleFilter === role
+          const count = counts[role as keyof typeof counts] ?? 0
+          return (
+            <button
+              key={label}
+              onClick={() => setRoleFilter(role)}
               style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '1.5rem',
-                fontWeight: 700,
-                lineHeight: 1,
+                border: `2px solid ${isActive ? 'var(--accent)' : 'var(--ink)'}`,
+                background: isActive ? 'var(--ink)' : 'var(--cream)',
+                color: isActive ? 'var(--cream)' : 'var(--ink)',
+                padding: '12px 16px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                borderRadius: 0,
               }}
             >
-              {count}
-            </div>
-            <div
-              style={{
-                fontFamily: 'Archivo, sans-serif',
-                fontSize: '0.75rem',
-                opacity: 0.7,
-                marginTop: '4px',
-              }}
-            >
-              {label}
-            </div>
-          </button>
-        ))}
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
+              >
+                {count}
+              </div>
+              <div
+                style={{
+                  fontFamily: 'Archivo, sans-serif',
+                  fontSize: '0.75rem',
+                  opacity: 0.7,
+                  marginTop: '4px',
+                }}
+              >
+                {label}
+              </div>
+            </button>
+          )
+        })}
       </div>
 
       {/* Participants table */}
       {filteredParticipants.length === 0 ? (
         <Card
+          className="mb-6"
           style={{
             borderRadius: 0,
             border: '2px dashed var(--ink)',
@@ -275,76 +342,42 @@ export default function ParticipantsPage({
               style={{ color: 'var(--ink)', opacity: 0.3 }}
             />
             <p style={{ color: 'var(--ink)', opacity: 0.6 }}>
-              {roleFilter === 'ALL' ? 'No participants yet' : `No ${roleFilter.toLowerCase()}s yet`}
+              {roleFilter === 'ALL'
+                ? 'No participants yet'
+                : `No ${roleFilter.toLowerCase()}s yet`}
             </p>
-            {roleFilter === 'JUDGE' && (
-              <Button
-                onClick={() => setShowInviteDialog(true)}
-                style={{
-                  marginTop: '1rem',
-                  background: 'var(--ink)',
-                  color: 'var(--cream)',
-                  border: '2px solid var(--ink)',
-                  borderRadius: 0,
-                  fontFamily: 'Archivo, sans-serif',
-                  fontWeight: 700,
-                }}
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Invite Judges
-              </Button>
-            )}
           </CardContent>
         </Card>
       ) : (
         <Card
+          className="mb-6"
           style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
         >
           <Table>
             <TableHeader>
               <TableRow style={{ borderBottom: '2px solid var(--ink)' }}>
                 <TableHead
-                  style={{
-                    fontFamily: 'Archivo, sans-serif',
-                    fontWeight: 700,
-                    color: 'var(--ink)',
-                  }}
+                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
                 >
                   Name
                 </TableHead>
                 <TableHead
-                  style={{
-                    fontFamily: 'Archivo, sans-serif',
-                    fontWeight: 700,
-                    color: 'var(--ink)',
-                  }}
+                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
                 >
                   Handle
                 </TableHead>
                 <TableHead
-                  style={{
-                    fontFamily: 'Archivo, sans-serif',
-                    fontWeight: 700,
-                    color: 'var(--ink)',
-                  }}
+                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
                 >
                   Role
                 </TableHead>
                 <TableHead
-                  style={{
-                    fontFamily: 'Archivo, sans-serif',
-                    fontWeight: 700,
-                    color: 'var(--ink)',
-                  }}
+                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
                 >
                   Team
                 </TableHead>
                 <TableHead
-                  style={{
-                    fontFamily: 'Archivo, sans-serif',
-                    fontWeight: 700,
-                    color: 'var(--ink)',
-                  }}
+                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
                 >
                   Joined
                 </TableHead>
@@ -352,11 +385,11 @@ export default function ParticipantsPage({
             </TableHeader>
             <TableBody>
               {filteredParticipants.map((p) => {
-                const roleStyle = getRoleBadgeStyle(p.role)
+                const roleColor = getRoleStyle(p.role)
                 return (
                   <TableRow
                     key={p.participant_id}
-                    style={{ borderBottom: '1px solid var(--ink)', opacity: 0.9 }}
+                    style={{ borderBottom: '1px solid var(--ink)' }}
                   >
                     <TableCell
                       style={{
@@ -372,7 +405,7 @@ export default function ParticipantsPage({
                         fontFamily: 'JetBrains Mono, monospace',
                         fontSize: '0.8rem',
                         color: 'var(--ink)',
-                        opacity: 0.7,
+                        opacity: 0.6,
                       }}
                     >
                       @{p.handle}
@@ -384,9 +417,8 @@ export default function ParticipantsPage({
                           fontSize: '0.7rem',
                           fontWeight: 700,
                           padding: '2px 8px',
-                          border: `2px solid ${roleStyle.border}`,
-                          color: roleStyle.color,
-                          whiteSpace: 'nowrap',
+                          border: `2px solid ${roleColor}`,
+                          color: roleColor,
                         }}
                       >
                         {p.role}
@@ -418,6 +450,139 @@ export default function ParticipantsPage({
             </TableBody>
           </Table>
         </Card>
+      )}
+
+      {/* Invitations table */}
+      {invitations.length > 0 && (
+        <>
+          <h2
+            style={{
+              fontFamily: 'Archivo, sans-serif',
+              fontWeight: 700,
+              color: 'var(--ink)',
+              fontSize: '1.25rem',
+              marginBottom: '1rem',
+            }}
+          >
+            Pending Invitations
+            <span
+              style={{
+                marginLeft: '12px',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.75rem',
+                padding: '2px 8px',
+                border: '2px solid var(--ink)',
+                color: 'var(--ink)',
+              }}
+            >
+              {invitations.length}
+            </span>
+          </h2>
+          <Card
+            style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow style={{ borderBottom: '2px solid var(--ink)' }}>
+                  <TableHead
+                    style={{
+                      fontFamily: 'Archivo, sans-serif',
+                      fontWeight: 700,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    Email
+                  </TableHead>
+                  <TableHead
+                    style={{
+                      fontFamily: 'Archivo, sans-serif',
+                      fontWeight: 700,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    Role
+                  </TableHead>
+                  <TableHead
+                    style={{
+                      fontFamily: 'Archivo, sans-serif',
+                      fontWeight: 700,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    Status
+                  </TableHead>
+                  <TableHead
+                    style={{
+                      fontFamily: 'Archivo, sans-serif',
+                      fontWeight: 700,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    Expires
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invitations.map((inv) => {
+                  const roleColor = getRoleStyle(inv.role)
+                  const statusColor = getInvitationStatusStyle(inv.status)
+                  return (
+                    <TableRow
+                      key={inv.invitation_id}
+                      style={{ borderBottom: '1px solid var(--ink)' }}
+                    >
+                      <TableCell
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.875rem',
+                          color: 'var(--ink)',
+                        }}
+                      >
+                        {inv.email}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          style={{
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            border: `2px solid ${roleColor}`,
+                            color: roleColor,
+                          }}
+                        >
+                          {inv.role}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          style={{
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            color: statusColor,
+                          }}
+                        >
+                          {inv.status}
+                        </span>
+                      </TableCell>
+                      <TableCell
+                        style={{
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontSize: '0.75rem',
+                          color: 'var(--ink)',
+                          opacity: 0.5,
+                        }}
+                      >
+                        {new Date(inv.expires_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
       )}
     </div>
   )

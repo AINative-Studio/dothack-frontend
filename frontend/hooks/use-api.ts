@@ -52,6 +52,22 @@ import {
   createInvitation,
   getHackathonStats,
   exportHackathonData,
+  listFeaturedHackathons,
+  createFeaturedHackathon,
+  updateFeaturedHackathon,
+  deleteFeaturedHackathon,
+  reorderFeaturedHackathon,
+  listThemes,
+  createTheme,
+  updateTheme,
+  deleteTheme,
+  reorderTheme,
+  getInvitationByToken,
+  acceptInvitation,
+  declineInvitation,
+  resendInvitation,
+  uploadSubmissionFile,
+  deleteFile,
   type Hackathon,
   type ListHackathonsParams,
   type ListHackathonsResponse,
@@ -195,6 +211,14 @@ export const DotHackQueryKeys = {
       ['dothack', 'analytics', hackathonId, 'export', format] as const,
   },
   search: (params: SearchParams) => ['dothack', 'search', params] as const,
+  featured: {
+    all: () => ['dothack', 'featured'] as const,
+    detail: (id: string) => ['dothack', 'featured', id] as const,
+  },
+  themes: {
+    all: () => ['dothack', 'themes'] as const,
+    detail: (id: string) => ['dothack', 'themes', id] as const,
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -837,6 +861,200 @@ export function useExportData(
     // Export data is not stale - don't refetch automatically
     staleTime: Infinity,
     gcTime: 0,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Featured Hackathons hooks
+// ---------------------------------------------------------------------------
+
+export function useFeaturedHackathons(): UseQueryResult<any, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.featured.all(),
+    queryFn: () => listFeaturedHackathons(token ?? undefined),
+  })
+}
+
+export function useCreateFeatured(): UseMutationResult<any, Error, any> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => createFeaturedHackathon(body, token ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.featured.all() })
+    },
+  })
+}
+
+export function useUpdateFeatured(): UseMutationResult<any, Error, { id: string; body: any }> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }) => updateFeaturedHackathon(id, body, token ?? undefined),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.featured.all() })
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.featured.detail(id) })
+    },
+  })
+}
+
+export function useDeleteFeatured(): UseMutationResult<any, Error, string> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteFeaturedHackathon(id, token ?? undefined),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.featured.all() })
+      queryClient.removeQueries({ queryKey: DotHackQueryKeys.featured.detail(id) })
+    },
+  })
+}
+
+export function useReorderFeatured(): UseMutationResult<any, Error, { id: string; order: number }> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, order }) => reorderFeaturedHackathon(id, order, token ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.featured.all() })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Themes hooks
+// ---------------------------------------------------------------------------
+
+export function useThemes(): UseQueryResult<any, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.themes.all(),
+    queryFn: () => listThemes(token ?? undefined),
+  })
+}
+
+export function useCreateTheme(): UseMutationResult<any, Error, any> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => createTheme(body, token ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.themes.all() })
+    },
+  })
+}
+
+export function useUpdateTheme(): UseMutationResult<any, Error, { id: string; body: any }> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }) => updateTheme(id, body, token ?? undefined),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.themes.all() })
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.themes.detail(id) })
+    },
+  })
+}
+
+export function useDeleteTheme(): UseMutationResult<any, Error, string> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteTheme(id, token ?? undefined),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.themes.all() })
+      queryClient.removeQueries({ queryKey: DotHackQueryKeys.themes.detail(id) })
+    },
+  })
+}
+
+export function useReorderTheme(): UseMutationResult<any, Error, { id: string; order: number }> {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, order }) => reorderTheme(id, order, token ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DotHackQueryKeys.themes.all() })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Invitation token hooks
+// ---------------------------------------------------------------------------
+
+export function useInvitationByToken(token: string): UseQueryResult<any, Error> {
+  const { token: authToken } = useAuth()
+  return useQuery({
+    queryKey: ['dothack', 'invitations', 'token', token] as const,
+    queryFn: () => getInvitationByToken(token, authToken ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useAcceptInvitation(): UseMutationResult<
+  any,
+  Error,
+  { invToken: string; email: string; name?: string }
+> {
+  const { token: authToken } = useAuth()
+  return useMutation({
+    mutationFn: ({ invToken, email, name }) =>
+      acceptInvitation(invToken, { email, name }, authToken ?? undefined),
+  })
+}
+
+export function useDeclineInvitation(): UseMutationResult<
+  any,
+  Error,
+  { invToken: string }
+> {
+  const { token: authToken } = useAuth()
+  return useMutation({
+    mutationFn: ({ invToken }) =>
+      declineInvitation(invToken, { token: invToken }, authToken ?? undefined),
+  })
+}
+
+export function useResendInvitation(): UseMutationResult<any, Error, string> {
+  const { token: authToken } = useAuth()
+  return useMutation({
+    mutationFn: (id: string) => resendInvitation(id, authToken ?? undefined),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// File hooks
+// ---------------------------------------------------------------------------
+
+export function useUploadFile(): UseMutationResult<
+  any,
+  Error,
+  { submissionId: string; file: File }
+> {
+  const { token: authToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ submissionId, file }) =>
+      uploadSubmissionFile(submissionId, file, authToken ?? undefined),
+    onSuccess: (_data, { submissionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: DotHackQueryKeys.submissions.detail(submissionId),
+      })
+      queryClient.invalidateQueries({ queryKey: ['dothack', 'submissions'] })
+    },
+  })
+}
+
+export function useDeleteFile(): UseMutationResult<any, Error, string> {
+  const { token: authToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (fileId: string) => deleteFile(fileId, authToken ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dothack', 'submissions'] })
+    },
   })
 }
 

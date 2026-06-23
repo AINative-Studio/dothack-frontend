@@ -1,16 +1,10 @@
 "use client"
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { useHackathon, useLeaderboard } from '@/hooks/use-api'
-import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
 import { Trophy, Download, Loader2, Medal } from 'lucide-react'
-import type { Track } from '@/lib/types'
 import type { LeaderboardEntry } from '@/lib/api/judging'
 
 export default function LeaderboardPage({
@@ -18,24 +12,10 @@ export default function LeaderboardPage({
 }: {
   params: { hackathonId: string }
 }) {
-  const { token } = useAuth()
-
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
   const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(params.hackathonId)
 
-  // Tracks for filtering
-  const { data: tracks = [], isLoading: tracksLoading } = useQuery<Track[]>({
-    queryKey: ['dothack', 'tracks', params.hackathonId],
-    queryFn: () =>
-      apiClient<Track[]>(`/hackathons/${params.hackathonId}/tracks`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
-
-  const [selectedTrack, setSelectedTrack] = useState<string>('all')
-
-  const isLoading = hackathonLoading || leaderboardLoading || tracksLoading
+  const isLoading = hackathonLoading || leaderboardLoading
 
   if (isLoading) {
     return (
@@ -55,18 +35,11 @@ export default function LeaderboardPage({
     )
   }
 
-  const entries = leaderboard?.entries ?? []
-
-  // Note: the leaderboard API returns entries pre-ranked.
-  // Track filtering is not possible server-side here, so we show all entries.
-  // If tracks are loaded and a track is selected, we display all results
-  // (track info isn't available in the leaderboard response, so filtering
-  // would require a separate lookup — we show all entries for now).
-  const displayedEntries = entries
+  const entries: LeaderboardEntry[] = leaderboard?.entries ?? []
 
   const exportToCSV = () => {
     const headers = ['Rank', 'Project', 'Team', 'Total Score', 'Average Score', 'Judges']
-    const rows = displayedEntries.map((e) => [
+    const rows = entries.map((e) => [
       e.rank,
       e.project_title,
       e.team_name,
@@ -120,7 +93,7 @@ export default function LeaderboardPage({
             <p style={{ color: 'var(--ink)', opacity: 0.6 }}>{hackathon.name}</p>
           </div>
         </div>
-        {displayedEntries.length > 0 && (
+        {entries.length > 0 && (
           <Button
             onClick={exportToCSV}
             variant="outline"
@@ -139,7 +112,6 @@ export default function LeaderboardPage({
         )}
       </div>
 
-      {/* Summary stat for last updated */}
       {leaderboard?.last_updated && (
         <p
           style={{
@@ -154,7 +126,7 @@ export default function LeaderboardPage({
         </p>
       )}
 
-      {displayedEntries.length === 0 ? (
+      {entries.length === 0 ? (
         <Card
           style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
         >
@@ -171,9 +143,9 @@ export default function LeaderboardPage({
       ) : (
         <>
           {/* Top 3 podium */}
-          {displayedEntries.length >= 1 && (
+          {entries.length >= 1 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {displayedEntries.slice(0, 3).map((entry) => (
+              {entries.slice(0, 3).map((entry) => (
                 <Card
                   key={entry.submission_id}
                   style={{
@@ -300,7 +272,7 @@ export default function LeaderboardPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayedEntries.map((entry) => (
+                {entries.map((entry) => (
                   <TableRow
                     key={entry.submission_id}
                     style={{

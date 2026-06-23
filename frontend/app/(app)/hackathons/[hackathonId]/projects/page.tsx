@@ -1,31 +1,26 @@
 "use client"
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { useHackathon, useSubmissions } from '@/hooks/use-api'
+import {
+  useHackathon,
+  useProjects,
+  useTeams,
+} from '@/hooks/use-api'
 import { useAuth } from '@/lib/auth/auth-context'
 import { apiClient } from '@/lib/api/client'
 import { Plus, ExternalLink, Loader2, FolderOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Team } from '@/lib/types'
-import type { Submission } from '@/lib/api/submissions-backend'
-
-interface Project {
-  project_id: string
-  hackathon_id: string
-  team_id: string
-  title: string
-  one_liner?: string
-  status: 'IDEA' | 'BUILDING' | 'SUBMITTED'
-  repo_url?: string
-  demo_url?: string
-}
+import type {
+  Project,
+  ProjectStatus,
+  CreateProjectInput,
+} from '@/lib/api/hackathons-backend'
 
 export default function ProjectsPage({
   params,
@@ -36,58 +31,35 @@ export default function ProjectsPage({
   const queryClient = useQueryClient()
 
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
+  const { data: projectsData, isLoading: projectsLoading } = useProjects(params.hackathonId)
+  const { data: teamsData, isLoading: teamsLoading } = useTeams(params.hackathonId)
 
-  // Projects via apiClient
-  const { data: projectsData, isLoading: projectsLoading } = useQuery<{ projects: Project[] }>({
-    queryKey: ['dothack', 'projects', params.hackathonId],
-    queryFn: () =>
-      apiClient<{ projects: Project[] }>(
-        `/hackathons/${params.hackathonId}/projects`,
-        { token: token ?? undefined }
-      ),
-    enabled: !!params.hackathonId,
-  })
-
-  // Teams for the team picker
-  const { data: teamsData, isLoading: teamsLoading } = useQuery<{ teams: Team[] }>({
-    queryKey: ['dothack', 'teams', params.hackathonId],
-    queryFn: () =>
-      apiClient<{ teams: Team[] }>(`/hackathons/${params.hackathonId}/teams`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
-
-  // Submissions to show which projects have been submitted
-  const { data: submissionsData } = useSubmissions({ hackathon_id: params.hackathonId })
-
+  // createProject and updateProject don't have hooks in use-api.ts, use apiClient directly
   const createProject = useMutation({
-    mutationFn: (data: Omit<Project, 'project_id' | 'hackathon_id'>) =>
-      apiClient<Project>(`/hackathons/${params.hackathonId}/projects`, {
+    mutationFn: (data: CreateProjectInput) =>
+      apiClient<Project>(`/v1/hackathons/${params.hackathonId}/projects`, {
         method: 'POST',
         body: JSON.stringify(data),
         token: token!,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'projects', params.hackathonId] })
+      queryClient.invalidateQueries({
+        queryKey: ['dothack', 'projects', params.hackathonId],
+      })
     },
   })
 
   const updateProject = useMutation({
-    mutationFn: ({
-      projectId,
-      status,
-    }: {
-      projectId: string
-      status: Project['status']
-    }) =>
-      apiClient<Project>(`/projects/${projectId}`, {
+    mutationFn: ({ projectId, status }: { projectId: string; status: ProjectStatus }) =>
+      apiClient<Project>(`/v1/projects/${projectId}`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
         token: token!,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'projects', params.hackathonId] })
+      queryClient.invalidateQueries({
+        queryKey: ['dothack', 'projects', params.hackathonId],
+      })
     },
   })
 
@@ -96,9 +68,10 @@ export default function ProjectsPage({
     team_id: '',
     title: '',
     one_liner: '',
+    description: '',
     repo_url: '',
     demo_url: '',
-    status: 'IDEA' as Project['status'],
+    video_url: '',
   })
 
   const isLoading = hackathonLoading || projectsLoading || teamsLoading
@@ -123,29 +96,31 @@ export default function ProjectsPage({
 
   const projects = projectsData?.projects ?? []
   const teams = teamsData?.teams ?? []
-  const submissions = submissionsData?.submissions ?? []
-
-  // Build a lookup of team names
   const teamById = Object.fromEntries(teams.map((t) => [t.team_id, t]))
-
-  // Check whether a project has a submission
-  const submissionByTeam = Object.fromEntries(
-    submissions.map((s) => [s.team_name, s])
-  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       await createProject.mutateAsync({
+        hackathon_id: params.hackathonId,
         team_id: formData.team_id,
         title: formData.title,
-        one_liner: formData.one_liner || undefined,
-        repo_url: formData.repo_url || undefined,
-        demo_url: formData.demo_url || undefined,
-        status: formData.status,
+        one_liner: formData.one_liner || null,
+        description: formData.description || null,
+        repo_url: formData.repo_url || null,
+        demo_url: formData.demo_url || null,
+        video_url: formData.video_url || null,
       })
       toast.success('Project created successfully')
-      setFormData({ team_id: '', title: '', one_liner: '', repo_url: '', demo_url: '', status: 'IDEA' })
+      setFormData({
+        team_id: '',
+        title: '',
+        one_liner: '',
+        description: '',
+        repo_url: '',
+        demo_url: '',
+        video_url: '',
+      })
       setShowForm(false)
     } catch (error) {
       console.error('Failed to create project:', error)
@@ -155,7 +130,7 @@ export default function ProjectsPage({
     }
   }
 
-  const handleStatusChange = async (projectId: string, status: Project['status']) => {
+  const handleStatusChange = async (projectId: string, status: ProjectStatus) => {
     try {
       await updateProject.mutateAsync({ projectId, status })
       toast.success('Project status updated')
@@ -167,14 +142,19 @@ export default function ProjectsPage({
     }
   }
 
-  const getStatusStyle = (status: Project['status']) => {
+  const getStatusBorderColor = (status: ProjectStatus) => {
     switch (status) {
-      case 'IDEA':
-        return { border: 'var(--ink)', color: 'var(--ink)', opacity: 0.5 }
-      case 'BUILDING':
-        return { border: 'var(--accent)', color: 'var(--accent)', opacity: 1 }
-      case 'SUBMITTED':
-        return { border: '#16a34a', color: '#16a34a', opacity: 1 }
+      case 'IDEA': return 'var(--ink)'
+      case 'BUILDING': return 'var(--accent)'
+      case 'SUBMITTED': return '#16a34a'
+    }
+  }
+
+  const getStatusTextColor = (status: ProjectStatus) => {
+    switch (status) {
+      case 'IDEA': return { color: 'var(--ink)', opacity: 0.5 }
+      case 'BUILDING': return { color: 'var(--accent)', opacity: 1 }
+      case 'SUBMITTED': return { color: '#16a34a', opacity: 1 }
     }
   }
 
@@ -276,27 +256,53 @@ export default function ProjectsPage({
               </div>
               <div className="space-y-2">
                 <Label style={labelStyle}>
-                  Repository URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
+                  Description <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
                 </Label>
-                <Input
-                  type="url"
-                  placeholder="https://github.com/team/project"
-                  value={formData.repo_url}
-                  onChange={(e) => setFormData({ ...formData, repo_url: e.target.value })}
+                <Textarea
+                  placeholder="What does your project do and why does it matter?"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
                   style={inputStyle}
                 />
               </div>
-              <div className="space-y-2">
-                <Label style={labelStyle}>
-                  Demo URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
-                </Label>
-                <Input
-                  type="url"
-                  placeholder="https://demo.example.com"
-                  value={formData.demo_url}
-                  onChange={(e) => setFormData({ ...formData, demo_url: e.target.value })}
-                  style={inputStyle}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label style={labelStyle}>
+                    Repo URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
+                  </Label>
+                  <Input
+                    type="url"
+                    placeholder="https://github.com/..."
+                    value={formData.repo_url}
+                    onChange={(e) => setFormData({ ...formData, repo_url: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label style={labelStyle}>
+                    Demo URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
+                  </Label>
+                  <Input
+                    type="url"
+                    placeholder="https://demo.example.com"
+                    value={formData.demo_url}
+                    onChange={(e) => setFormData({ ...formData, demo_url: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label style={labelStyle}>
+                    Video URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
+                  </Label>
+                  <Input
+                    type="url"
+                    placeholder="https://youtube.com/..."
+                    value={formData.video_url}
+                    onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
               </div>
               <div className="flex gap-2 pt-2">
                 <Button
@@ -376,7 +382,8 @@ export default function ProjectsPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.map((project) => {
             const team = teamById[project.team_id]
-            const statusStyle = getStatusStyle(project.status)
+            const textStyle = getStatusTextColor(project.status)
+            const borderColor = getStatusBorderColor(project.status)
 
             return (
               <Card
@@ -431,8 +438,9 @@ export default function ProjectsPage({
                         fontSize: '0.7rem',
                         fontWeight: 700,
                         padding: '2px 8px',
-                        border: `2px solid ${statusStyle.border}`,
-                        color: statusStyle.color,
+                        border: `2px solid ${borderColor}`,
+                        color: textStyle.color,
+                        opacity: textStyle.opacity,
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
                       }}
@@ -442,87 +450,118 @@ export default function ProjectsPage({
                   </div>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  <div className="space-y-3">
-                    {(project.repo_url || project.demo_url) && (
-                      <div className="flex gap-4">
-                        {project.repo_url && (
-                          <a
-                            href={project.repo_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1"
-                            style={{
-                              color: 'var(--accent)',
-                              fontFamily: 'JetBrains Mono, monospace',
-                              fontSize: '0.75rem',
-                              textDecoration: 'none',
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Repository
-                          </a>
-                        )}
-                        {project.demo_url && (
-                          <a
-                            href={project.demo_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1"
-                            style={{
-                              color: 'var(--accent)',
-                              fontFamily: 'JetBrains Mono, monospace',
-                              fontSize: '0.75rem',
-                              textDecoration: 'none',
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Demo
-                          </a>
-                        )}
-                      </div>
-                    )}
+                  {project.description && (
+                    <p
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '0.875rem',
+                        color: 'var(--ink)',
+                        opacity: 0.7,
+                        marginBottom: '12px',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {project.description}
+                    </p>
+                  )}
 
-                    <div style={{ paddingTop: '8px', borderTop: '1px solid var(--ink)' }}>
-                      <Label
-                        style={{
-                          fontSize: '0.75rem',
-                          fontFamily: 'Archivo, sans-serif',
-                          fontWeight: 700,
-                          color: 'var(--ink)',
-                          opacity: 0.6,
-                          display: 'block',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        Update Status
-                      </Label>
-                      <div className="flex gap-2">
-                        {(['IDEA', 'BUILDING', 'SUBMITTED'] as Project['status'][]).map((s) => {
-                          const ss = getStatusStyle(s)
-                          const isActive = project.status === s
-                          return (
-                            <button
-                              key={s}
-                              onClick={() => handleStatusChange(project.project_id, s)}
-                              disabled={updateProject.isPending || isActive}
-                              style={{
-                                padding: '3px 10px',
-                                border: `2px solid ${ss.border}`,
-                                borderRadius: 0,
-                                background: isActive ? ss.border : 'transparent',
-                                color: isActive ? 'var(--cream)' : ss.color,
-                                fontFamily: 'JetBrains Mono, monospace',
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                cursor: isActive ? 'default' : 'pointer',
-                                opacity: updateProject.isPending ? 0.5 : 1,
-                              }}
-                            >
-                              {s}
-                            </button>
-                          )
-                        })}
-                      </div>
+                  {(project.repo_url || project.demo_url || project.video_url) && (
+                    <div className="flex gap-4 flex-wrap mb-4">
+                      {project.repo_url && (
+                        <a
+                          href={project.repo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{
+                            color: 'var(--accent)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Repository
+                        </a>
+                      )}
+                      {project.demo_url && (
+                        <a
+                          href={project.demo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{
+                            color: 'var(--accent)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Demo
+                        </a>
+                      )}
+                      {project.video_url && (
+                        <a
+                          href={project.video_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{
+                            color: 'var(--accent)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Video
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ paddingTop: '12px', borderTop: '1px solid var(--ink)' }}>
+                    <Label
+                      style={{
+                        fontFamily: 'Archivo, sans-serif',
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        color: 'var(--ink)',
+                        opacity: 0.6,
+                        display: 'block',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      Update Status
+                    </Label>
+                    <div className="flex gap-2">
+                      {(['IDEA', 'BUILDING', 'SUBMITTED'] as ProjectStatus[]).map((s) => {
+                        const isActive = project.status === s
+                        const bc = getStatusBorderColor(s)
+                        const tc = getStatusTextColor(s)
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => handleStatusChange(project.project_id, s)}
+                            disabled={updateProject.isPending || isActive}
+                            style={{
+                              padding: '3px 10px',
+                              border: `2px solid ${bc}`,
+                              borderRadius: 0,
+                              background: isActive ? bc : 'transparent',
+                              color: isActive ? 'var(--cream)' : tc.color,
+                              fontFamily: 'JetBrains Mono, monospace',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              cursor: isActive ? 'default' : 'pointer',
+                              opacity: updateProject.isPending ? 0.5 : tc.opacity,
+                            }}
+                          >
+                            {s}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 </CardContent>

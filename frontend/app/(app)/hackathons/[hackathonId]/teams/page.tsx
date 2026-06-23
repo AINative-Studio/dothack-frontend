@@ -1,104 +1,35 @@
 "use client"
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { useHackathon } from '@/hooks/use-api'
-import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
+import {
+  useHackathon,
+  useTeams,
+  useCreateTeam,
+  useTeam,
+  useTracks,
+} from '@/hooks/use-api'
 import { Plus, Users, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Team, Track } from '@/lib/types'
-import type { Participant } from '@/lib/api/hackathons-backend'
+import type { Team, TeamDetail, TeamMember } from '@/lib/api/hackathons-backend'
 
 export default function TeamsPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { token } = useAuth()
-  const queryClient = useQueryClient()
-
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
-
-  // Teams via apiClient
-  const { data: teamsData, isLoading: teamsLoading } = useQuery<{ teams: Team[] }>({
-    queryKey: ['dothack', 'teams', params.hackathonId],
-    queryFn: () =>
-      apiClient<{ teams: Team[] }>(`/hackathons/${params.hackathonId}/teams`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
-
-  // Tracks via apiClient
-  const { data: tracks = [], isLoading: tracksLoading } = useQuery<Track[]>({
-    queryKey: ['dothack', 'tracks', params.hackathonId],
-    queryFn: () =>
-      apiClient<Track[]>(`/hackathons/${params.hackathonId}/tracks`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
-
-  // Participants for the member picker
-  const { data: participantsData, isLoading: participantsLoading } = useQuery<{
-    participants: Participant[]
-  }>({
-    queryKey: ['dothack', 'participants', params.hackathonId],
-    queryFn: () =>
-      apiClient<{ participants: Participant[] }>(
-        `/hackathons/${params.hackathonId}/participants`,
-        { token: token ?? undefined }
-      ),
-    enabled: !!params.hackathonId,
-  })
-
-  const createTeam = useMutation({
-    mutationFn: (data: { name: string; track_id?: string }) =>
-      apiClient<Team>(`/hackathons/${params.hackathonId}/teams`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        token: token!,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'teams', params.hackathonId] })
-    },
-  })
-
-  const addMember = useMutation({
-    mutationFn: ({
-      teamId,
-      participantId,
-      role,
-    }: {
-      teamId: string
-      participantId: string
-      role: 'LEAD' | 'MEMBER'
-    }) =>
-      apiClient(`/teams/${teamId}/members`, {
-        method: 'POST',
-        body: JSON.stringify({ participant_id: participantId, role }),
-        token: token!,
-      }),
-    onSuccess: (_, { teamId }) => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'team-members', teamId] })
-    },
-  })
+  const { data: teamsData, isLoading: teamsLoading } = useTeams(params.hackathonId)
+  const { data: tracksData, isLoading: tracksLoading } = useTracks(params.hackathonId)
+  const createTeam = useCreateTeam()
 
   const [showTeamForm, setShowTeamForm] = useState(false)
-  const [teamData, setTeamData] = useState({ name: '', track_id: '' })
-  const [showMemberForm, setShowMemberForm] = useState<string | null>(null)
-  const [memberData, setMemberData] = useState({
-    participant_id: '',
-    role: 'MEMBER' as 'LEAD' | 'MEMBER',
-  })
+  const [teamData, setTeamData] = useState({ name: '', track_id: '', description: '' })
 
-  const isLoading = hackathonLoading || teamsLoading || tracksLoading || participantsLoading
+  const isLoading = hackathonLoading || teamsLoading || tracksLoading
 
   if (isLoading) {
     return (
@@ -119,41 +50,23 @@ export default function TeamsPage({
   }
 
   const teams = teamsData?.teams ?? []
-  const participants = participantsData?.participants ?? []
+  const tracks = tracksData?.tracks ?? []
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       await createTeam.mutateAsync({
+        hackathon_id: params.hackathonId,
         name: teamData.name,
-        track_id: teamData.track_id || undefined,
+        track_id: teamData.track_id || null,
+        description: teamData.description || null,
       })
       toast.success('Team created successfully')
-      setTeamData({ name: '', track_id: '' })
+      setTeamData({ name: '', track_id: '', description: '' })
       setShowTeamForm(false)
     } catch (error) {
       console.error('Failed to create team:', error)
       toast.error('Failed to create team', {
-        description: error instanceof Error ? error.message : 'Please try again',
-      })
-    }
-  }
-
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!showMemberForm) return
-    try {
-      await addMember.mutateAsync({
-        teamId: showMemberForm,
-        participantId: memberData.participant_id,
-        role: memberData.role,
-      })
-      toast.success('Member added successfully')
-      setMemberData({ participant_id: '', role: 'MEMBER' })
-      setShowMemberForm(null)
-    } catch (error) {
-      console.error('Failed to add member:', error)
-      toast.error('Failed to add member', {
         description: error instanceof Error ? error.message : 'Please try again',
       })
     }
@@ -171,6 +84,14 @@ export default function TeamsPage({
     fontFamily: 'Archivo, sans-serif',
     fontWeight: 700 as const,
     color: 'var(--ink)',
+  }
+
+  const getStatusColor = (status: Team['status']) => {
+    switch (status) {
+      case 'ACTIVE': return 'var(--accent)'
+      case 'SUBMITTED': return '#16a34a'
+      default: return 'var(--ink)'
+    }
   }
 
   return (
@@ -247,6 +168,17 @@ export default function TeamsPage({
                   </select>
                 </div>
               )}
+              <div className="space-y-2">
+                <Label style={labelStyle}>
+                  Description <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
+                </Label>
+                <Input
+                  placeholder="What is this team building?"
+                  value={teamData.description}
+                  onChange={(e) => setTeamData({ ...teamData, description: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
               <div className="flex gap-2 pt-2">
                 <Button
                   type="submit"
@@ -296,7 +228,10 @@ export default function TeamsPage({
           style={{ borderRadius: 0, border: '2px dashed var(--ink)', background: 'var(--cream)' }}
         >
           <CardContent className="text-center py-12">
-            <Users className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--ink)', opacity: 0.3 }} />
+            <Users
+              className="h-12 w-12 mx-auto mb-4"
+              style={{ color: 'var(--ink)', opacity: 0.3 }}
+            />
             <p style={{ color: 'var(--ink)', opacity: 0.6, marginBottom: '1rem' }}>
               No teams yet
             </p>
@@ -322,150 +257,15 @@ export default function TeamsPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {teams.map((team) => {
             const track = team.track_id ? tracks.find((t) => t.track_id === team.track_id) : null
-            const isAddingMember = showMemberForm === team.team_id
+            const statusColor = getStatusColor(team.status)
 
             return (
-              <Card
+              <TeamCard
                 key={team.team_id}
-                style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
-              >
-                <CardHeader style={{ borderBottom: '2px solid var(--ink)' }}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle
-                        className="flex items-center gap-2"
-                        style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)', fontSize: '1.05rem' }}
-                      >
-                        <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
-                        {team.name}
-                      </CardTitle>
-                      {track && (
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            marginTop: '8px',
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            border: '2px solid var(--accent)',
-                            color: 'var(--accent)',
-                          }}
-                        >
-                          {track.name}
-                        </span>
-                      )}
-                    </div>
-                    {!isAddingMember && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowMemberForm(team.team_id)}
-                        style={{
-                          border: '2px solid var(--ink)',
-                          borderRadius: 0,
-                          background: 'transparent',
-                          color: 'var(--ink)',
-                          fontFamily: 'Archivo, sans-serif',
-                          fontWeight: 700,
-                          fontSize: '0.75rem',
-                        }}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add Member
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {isAddingMember && (
-                    <form
-                      onSubmit={handleAddMember}
-                      className="mb-4 space-y-3"
-                      style={{ padding: '12px', border: '1px solid var(--ink)' }}
-                    >
-                      <div className="space-y-2">
-                        <Label style={{ ...labelStyle, fontSize: '0.8rem' }}>Participant</Label>
-                        <select
-                          value={memberData.participant_id}
-                          onChange={(e) =>
-                            setMemberData({ ...memberData, participant_id: e.target.value })
-                          }
-                          required
-                          style={{ ...inputStyle, width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
-                        >
-                          <option value="">Select participant</option>
-                          {participants
-                            .filter((p) => p.role === 'BUILDER')
-                            .map((p) => (
-                              <option key={p.participant_id} value={p.participant_id}>
-                                {p.name} (@{p.handle})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label style={{ ...labelStyle, fontSize: '0.8rem' }}>Role</Label>
-                        <select
-                          value={memberData.role}
-                          onChange={(e) =>
-                            setMemberData({
-                              ...memberData,
-                              role: e.target.value as 'LEAD' | 'MEMBER',
-                            })
-                          }
-                          style={{ ...inputStyle, width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
-                        >
-                          <option value="LEAD">Lead</option>
-                          <option value="MEMBER">Member</option>
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="submit"
-                          size="sm"
-                          disabled={addMember.isPending}
-                          style={{
-                            background: 'var(--ink)',
-                            color: 'var(--cream)',
-                            border: '2px solid var(--ink)',
-                            borderRadius: 0,
-                            fontFamily: 'Archivo, sans-serif',
-                            fontWeight: 700,
-                            fontSize: '0.75rem',
-                          }}
-                        >
-                          {addMember.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            'Add'
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowMemberForm(null)}
-                          disabled={addMember.isPending}
-                          style={{
-                            border: '2px solid var(--ink)',
-                            borderRadius: 0,
-                            background: 'transparent',
-                            color: 'var(--ink)',
-                            fontFamily: 'Archivo, sans-serif',
-                            fontWeight: 700,
-                            fontSize: '0.75rem',
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  )}
-
-                  <TeamMembers teamId={team.team_id} token={token} participants={participants} />
-                </CardContent>
-              </Card>
+                team={team}
+                track={track ?? null}
+                statusColor={statusColor}
+              />
             )
           })}
         </div>
@@ -474,83 +274,144 @@ export default function TeamsPage({
   )
 }
 
-function TeamMembers({
-  teamId,
-  token,
-  participants,
+function TeamCard({
+  team,
+  track,
+  statusColor,
 }: {
-  teamId: string
-  token: string | null
-  participants: Participant[]
+  team: Team
+  track: { track_id: string; name: string } | null
+  statusColor: string
 }) {
-  const { data: membersData, isLoading } = useQuery<{
-    members: Array<{ participant_id: string; role: 'LEAD' | 'MEMBER' }>
-  }>({
-    queryKey: ['dothack', 'team-members', teamId],
-    queryFn: () =>
-      apiClient<{ members: Array<{ participant_id: string; role: 'LEAD' | 'MEMBER' }> }>(
-        `/teams/${teamId}/members`,
-        { token: token ?? undefined }
-      ),
-    enabled: !!teamId,
-  })
+  // useTeam returns TeamDetail which includes members[]
+  const { data: teamDetail, isLoading } = useTeam(team.team_id)
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--ink)', opacity: 0.4 }} />
-      </div>
-    )
-  }
-
-  const members = membersData?.members ?? []
-
-  if (members.length === 0) {
-    return (
-      <p style={{ fontSize: '0.875rem', color: 'var(--ink)', opacity: 0.5 }}>
-        No members yet
-      </p>
-    )
-  }
+  const members = teamDetail?.members ?? []
 
   return (
-    <div className="space-y-2">
-      {members.map((member) => {
-        const participant = participants.find((p) => p.participant_id === member.participant_id)
-        return (
-          <div
-            key={member.participant_id}
-            className="flex items-center justify-between"
+    <Card
+      style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
+    >
+      <CardHeader style={{ borderBottom: '2px solid var(--ink)' }}>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle
+              className="flex items-center gap-2"
+              style={{
+                fontFamily: 'Archivo, sans-serif',
+                color: 'var(--ink)',
+                fontSize: '1.05rem',
+              }}
+            >
+              <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
+              {team.name}
+            </CardTitle>
+            <div className="flex gap-2 mt-2 flex-wrap items-center">
+              {track && (
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    border: '2px solid var(--accent)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  {track.name}
+                </span>
+              )}
+              <span
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  border: `2px solid ${statusColor}`,
+                  color: statusColor,
+                }}
+              >
+                {team.status}
+              </span>
+            </div>
+          </div>
+          <span
             style={{
-              padding: '8px 12px',
-              border: '1px solid var(--ink)',
-              background: 'rgba(0,0,0,0.02)',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '0.75rem',
+              color: 'var(--ink)',
+              opacity: 0.5,
             }}
           >
-            <span
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '0.875rem',
-                color: 'var(--ink)',
-              }}
-            >
-              {participant?.name ?? member.participant_id}
-            </span>
-            <span
-              style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                padding: '2px 8px',
-                border: `2px solid ${member.role === 'LEAD' ? 'var(--accent)' : 'var(--ink)'}`,
-                color: member.role === 'LEAD' ? 'var(--accent)' : 'var(--ink)',
-              }}
-            >
-              {member.role}
-            </span>
+            {teamDetail?.member_count ?? 0} member{(teamDetail?.member_count ?? 0) !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {team.description && (
+          <p
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.875rem',
+              color: 'var(--ink)',
+              opacity: 0.7,
+              marginBottom: '12px',
+            }}
+          >
+            {team.description}
+          </p>
+        )}
+
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <Loader2
+              className="h-4 w-4 animate-spin"
+              style={{ color: 'var(--ink)', opacity: 0.4 }}
+            />
           </div>
-        )
-      })}
-    </div>
+        ) : members.length === 0 ? (
+          <p style={{ fontSize: '0.875rem', color: 'var(--ink)', opacity: 0.4 }}>
+            No members yet
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {members.map((member) => (
+              <div
+                key={member.participant_id}
+                className="flex items-center justify-between"
+                style={{
+                  padding: '8px 12px',
+                  border: '1px solid var(--ink)',
+                  background: 'rgba(0,0,0,0.02)',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '0.875rem',
+                    color: 'var(--ink)',
+                    fontWeight: 500,
+                  }}
+                >
+                  {member.name}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    border: `2px solid ${member.role === 'LEAD' ? 'var(--accent)' : 'var(--ink)'}`,
+                    color: member.role === 'LEAD' ? 'var(--accent)' : 'var(--ink)',
+                  }}
+                >
+                  {member.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

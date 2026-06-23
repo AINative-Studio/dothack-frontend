@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,61 +8,288 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useHackathon, useSubmissions } from '@/hooks/use-api'
-import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
-import { Plus, Search, AlertCircle, Loader2, FileText, ExternalLink } from 'lucide-react'
+import {
+  useHackathon,
+  useSubmissions,
+  useTeams,
+  useCreateSubmission,
+  useUploadFile,
+  useDeleteFile,
+} from '@/hooks/use-api'
+import { Plus, Search, AlertCircle, Loader2, FileText, ExternalLink, Upload, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Submission } from '@/lib/api/submissions-backend'
-import type { Team } from '@/lib/types'
+import { downloadFile } from '@/lib/api/hackathons-backend'
+import { useAuth } from '@/lib/auth/auth-context'
+
+// ---------------------------------------------------------------------------
+// File upload zone — rendered inside a submission's expanded detail view
+// ---------------------------------------------------------------------------
+
+function FileUploadZone({ submissionId }: { submissionId: string }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const uploadFile = useUploadFile()
+  const deleteFileMutation = useDeleteFile()
+  const { token } = useAuth()
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return
+    for (const file of Array.from(files)) {
+      try {
+        await uploadFile.mutateAsync({ submissionId, file })
+        toast.success(`Uploaded ${file.name}`)
+      } catch {
+        toast.error(`Failed to upload ${file.name}`)
+      }
+    }
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    handleFiles(e.dataTransfer.files)
+  }
+
+  async function handleDownload(fileId: string, fileName: string) {
+    try {
+      const blob = await downloadFile(fileId, token ?? undefined)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Download failed')
+    }
+  }
+
+  async function handleDelete(fileId: string) {
+    try {
+      await deleteFileMutation.mutateAsync(fileId)
+      toast.success('File deleted')
+    } catch {
+      toast.error('Failed to delete file')
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '1.25rem' }}>
+      <p
+        style={{
+          fontFamily: 'Archivo, sans-serif',
+          fontWeight: 700,
+          color: 'var(--ink)',
+          fontSize: '0.875rem',
+          marginBottom: '0.5rem',
+        }}
+      >
+        Files
+      </p>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        style={{
+          border: '1.5px dashed #c9c2b1',
+          padding: '1.25rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          background: 'var(--cream)',
+          marginBottom: '0.75rem',
+          transition: 'border-color 0.15s',
+        }}
+        onMouseEnter={(e) => {
+          ;(e.currentTarget as HTMLDivElement).style.borderColor = 'var(--ink)'
+        }}
+        onMouseLeave={(e) => {
+          ;(e.currentTarget as HTMLDivElement).style.borderColor = '#c9c2b1'
+        }}
+      >
+        <Upload
+          className="mx-auto mb-2"
+          style={{ color: 'var(--ink)', opacity: 0.4, width: '1.25rem', height: '1.25rem' }}
+        />
+        <p
+          style={{
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '0.8rem',
+            color: 'var(--ink)',
+            opacity: 0.6,
+          }}
+        >
+          Drop files here or click to browse
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+      </div>
+
+      {/* Upload button */}
+      <Button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploadFile.isPending}
+        style={{
+          background: 'var(--accent)',
+          color: 'var(--cream)',
+          border: '2px solid var(--accent)',
+          borderRadius: 0,
+          fontFamily: 'Archivo, sans-serif',
+          fontWeight: 700,
+          fontSize: '0.8rem',
+          marginBottom: '0.75rem',
+        }}
+      >
+        {uploadFile.isPending ? (
+          <>
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="h-3 w-3 mr-1" />
+            Upload File
+          </>
+        )}
+      </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// File list — shown for a submission that already has files
+// ---------------------------------------------------------------------------
+
+interface FileListProps {
+  files: Array<{ file_id: string; file_name: string; file_url?: string; file_size?: number }>
+  submissionId: string
+}
+
+function FileList({ files, submissionId }: FileListProps) {
+  const deleteFileMutation = useDeleteFile()
+  const { token } = useAuth()
+
+  if (files.length === 0) return null
+
+  async function handleDownload(fileId: string, fileName: string) {
+    try {
+      const blob = await downloadFile(fileId, token ?? undefined)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Download failed')
+    }
+  }
+
+  async function handleDelete(fileId: string) {
+    try {
+      await deleteFileMutation.mutateAsync(fileId)
+      toast.success('File deleted')
+    } catch {
+      toast.error('Failed to delete file')
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+      {files.map((f) => (
+        <div
+          key={f.file_id}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.3rem 0.6rem',
+            border: '2px solid var(--ink)',
+            background: 'var(--cream)',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '0.7rem',
+              color: 'var(--ink)',
+              maxWidth: '160px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={f.file_name}
+          >
+            {f.file_name}
+          </span>
+          <button
+            onClick={() => handleDownload(f.file_id, f.file_name)}
+            title="Download"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0 0.125rem',
+              display: 'flex',
+              alignItems: 'center',
+              color: 'var(--ink)',
+              opacity: 0.6,
+            }}
+          >
+            <Download style={{ width: '0.75rem', height: '0.75rem' }} />
+          </button>
+          <button
+            onClick={() => handleDelete(f.file_id)}
+            disabled={deleteFileMutation.isPending}
+            title="Delete"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: deleteFileMutation.isPending ? 'not-allowed' : 'pointer',
+              padding: '0 0.125rem',
+              display: 'flex',
+              alignItems: 'center',
+              color: '#ff4d23',
+              opacity: deleteFileMutation.isPending ? 0.4 : 0.8,
+            }}
+          >
+            <Trash2 style={{ width: '0.75rem', height: '0.75rem' }} />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export default function SubmissionsPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { token } = useAuth()
-  const queryClient = useQueryClient()
-
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
 
   const { data: submissionsData, isLoading: submissionsLoading } = useSubmissions({
     hackathon_id: params.hackathonId,
   })
 
-  // Teams via apiClient — no dedicated hook in use-api.ts yet
-  const { data: teamsData, isLoading: teamsLoading } = useQuery<{ teams: Team[] }>({
-    queryKey: ['dothack', 'teams', params.hackathonId],
-    queryFn: () =>
-      apiClient<{ teams: Team[] }>(
-        `/hackathons/${params.hackathonId}/teams`,
-        { token: token ?? undefined }
-      ),
-    enabled: !!params.hackathonId,
-  })
+  const { data: teamsData, isLoading: teamsLoading } = useTeams(params.hackathonId)
 
-  // Submit a new submission via the backend API
-  const createSubmission = useMutation({
-    mutationFn: (data: {
-      team_id: string
-      description: string
-      repository_url?: string
-      demo_url?: string
-      video_url?: string
-    }) =>
-      apiClient<Submission>(`/hackathons/${params.hackathonId}/submissions`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        token: token!,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dothack', 'submissions'] })
-    },
-  })
+  const createSubmission = useCreateSubmission()
 
   const [showForm, setShowForm] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     team_id: '',
+    project_name: '',
     description: '',
     repository_url: '',
     demo_url: '',
@@ -109,16 +335,20 @@ export default function SubmissionsPage({
     if (isClosed) return
 
     try {
-      await createSubmission.mutateAsync({
+      const created = await createSubmission.mutateAsync({
+        hackathon_id: params.hackathonId,
         team_id: formData.team_id,
+        project_name: formData.project_name,
         description: formData.description,
-        repository_url: formData.repository_url || undefined,
-        demo_url: formData.demo_url || undefined,
-        video_url: formData.video_url || undefined,
+        repository_url: formData.repository_url || null,
+        demo_url: formData.demo_url || null,
+        video_url: formData.video_url || null,
       })
       toast.success('Submission created successfully')
-      setFormData({ team_id: '', description: '', repository_url: '', demo_url: '', video_url: '' })
+      setFormData({ team_id: '', project_name: '', description: '', repository_url: '', demo_url: '', video_url: '' })
       setShowForm(false)
+      // Auto-expand to allow file upload
+      if (created?.submission_id) setExpandedId(created.submission_id)
     } catch (error) {
       console.error('Failed to submit:', error)
       toast.error('Failed to create submission', {
@@ -192,6 +422,27 @@ export default function SubmissionsPage({
           </CardHeader>
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label
+                  style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
+                >
+                  Project Name
+                </Label>
+                <Input
+                  placeholder="My Awesome Project"
+                  value={formData.project_name}
+                  onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
+                  required
+                  style={{
+                    border: '2px solid var(--ink)',
+                    borderRadius: 0,
+                    background: 'var(--cream)',
+                    color: 'var(--ink)',
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label
                   style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 700, color: 'var(--ink)' }}
@@ -403,146 +654,216 @@ export default function SubmissionsPage({
         </Card>
       ) : (
         <div className="space-y-4">
-          {filteredSubmissions.map((submission) => (
-            <Card
-              key={submission.submission_id}
-              style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
-            >
-              <CardHeader style={{ borderBottom: '2px solid var(--ink)' }}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle
-                      style={{
-                        fontFamily: 'Archivo, sans-serif',
-                        color: 'var(--ink)',
-                        fontSize: '1.1rem',
-                      }}
-                    >
-                      {submission.project_name}
-                    </CardTitle>
-                    <div className="flex gap-2 mt-2 flex-wrap items-center">
-                      <Badge
-                        variant="outline"
+          {filteredSubmissions.map((submission) => {
+            const isExpanded = expandedId === submission.submission_id
+            const files: Array<{ file_id: string; file_name: string; file_url?: string }> =
+              (submission as any).files ?? []
+
+            return (
+              <Card
+                key={submission.submission_id}
+                style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
+              >
+                <CardHeader style={{ borderBottom: '2px solid var(--ink)' }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div style={{ flex: 1 }}>
+                      <button
+                        onClick={() =>
+                          setExpandedId(isExpanded ? null : submission.submission_id)
+                        }
                         style={{
-                          borderRadius: 0,
-                          border: '2px solid var(--ink)',
-                          fontFamily: 'JetBrains Mono, monospace',
-                          fontSize: '0.7rem',
-                          color: 'var(--ink)',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          width: '100%',
                         }}
                       >
-                        {submission.team_name}
-                      </Badge>
-                      {submission.track && (
+                        <CardTitle
+                          style={{
+                            fontFamily: 'Archivo, sans-serif',
+                            color: 'var(--ink)',
+                            fontSize: '1.1rem',
+                          }}
+                        >
+                          {submission.project_name}
+                        </CardTitle>
+                      </button>
+                      <div className="flex gap-2 mt-2 flex-wrap items-center">
                         <Badge
                           variant="outline"
                           style={{
                             borderRadius: 0,
-                            border: '2px solid var(--accent)',
+                            border: '2px solid var(--ink)',
                             fontFamily: 'JetBrains Mono, monospace',
                             fontSize: '0.7rem',
-                            color: 'var(--accent)',
+                            color: 'var(--ink)',
                           }}
                         >
-                          {submission.track}
+                          {submission.team_name}
                         </Badge>
-                      )}
-                      <span
-                        style={{
-                          fontFamily: 'JetBrains Mono, monospace',
-                          fontSize: '0.7rem',
-                          color: getStatusColor(submission.status),
-                          fontWeight: 700,
-                        }}
-                      >
-                        {submission.status}
-                      </span>
+                        {submission.track && (
+                          <Badge
+                            variant="outline"
+                            style={{
+                              borderRadius: 0,
+                              border: '2px solid var(--accent)',
+                              fontFamily: 'JetBrains Mono, monospace',
+                              fontSize: '0.7rem',
+                              color: 'var(--accent)',
+                            }}
+                          >
+                            {submission.track}
+                          </Badge>
+                        )}
+                        <span
+                          style={{
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.7rem',
+                            color: getStatusColor(submission.status),
+                            fontWeight: 700,
+                          }}
+                        >
+                          {submission.status}
+                        </span>
+                        {files.length > 0 && (
+                          <span
+                            style={{
+                              fontFamily: 'JetBrains Mono, monospace',
+                              fontSize: '0.65rem',
+                              color: 'var(--ink)',
+                              opacity: 0.5,
+                            }}
+                          >
+                            {files.length} file{files.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <span
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.7rem',
+                        color: 'var(--ink)',
+                        opacity: 0.5,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {new Date(submission.submitted_at).toLocaleDateString()}
+                    </span>
                   </div>
-                  <span
+                </CardHeader>
+
+                <CardContent className="pt-4">
+                  <p
                     style={{
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontSize: '0.7rem',
                       color: 'var(--ink)',
-                      opacity: 0.5,
-                      whiteSpace: 'nowrap',
+                      opacity: 0.8,
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.875rem',
+                      lineHeight: 1.6,
+                      marginBottom:
+                        submission.repository_url || submission.demo_url || submission.video_url
+                          ? '1rem'
+                          : 0,
                     }}
                   >
-                    {new Date(submission.submitted_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <p
-                  style={{
-                    color: 'var(--ink)',
-                    opacity: 0.8,
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '0.875rem',
-                    lineHeight: 1.6,
-                    marginBottom: submission.repository_url || submission.demo_url || submission.video_url ? '1rem' : 0,
-                  }}
-                >
-                  {submission.description}
-                </p>
-                {(submission.repository_url || submission.demo_url || submission.video_url) && (
-                  <div className="flex gap-4 flex-wrap">
-                    {submission.repository_url && (
-                      <a
-                        href={submission.repository_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1"
-                        style={{
-                          color: 'var(--accent)',
-                          fontFamily: 'JetBrains Mono, monospace',
-                          fontSize: '0.75rem',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Repository
-                      </a>
-                    )}
-                    {submission.demo_url && (
-                      <a
-                        href={submission.demo_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1"
-                        style={{
-                          color: 'var(--accent)',
-                          fontFamily: 'JetBrains Mono, monospace',
-                          fontSize: '0.75rem',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Demo
-                      </a>
-                    )}
-                    {submission.video_url && (
-                      <a
-                        href={submission.video_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1"
-                        style={{
-                          color: 'var(--accent)',
-                          fontFamily: 'JetBrains Mono, monospace',
-                          fontSize: '0.75rem',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Video
-                      </a>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                    {submission.description}
+                  </p>
+
+                  {(submission.repository_url || submission.demo_url || submission.video_url) && (
+                    <div className="flex gap-4 flex-wrap" style={{ marginBottom: isExpanded ? '0.5rem' : 0 }}>
+                      {submission.repository_url && (
+                        <a
+                          href={submission.repository_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{
+                            color: 'var(--accent)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Repository
+                        </a>
+                      )}
+                      {submission.demo_url && (
+                        <a
+                          href={submission.demo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{
+                            color: 'var(--accent)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Demo
+                        </a>
+                      )}
+                      {submission.video_url && (
+                        <a
+                          href={submission.video_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{
+                            color: 'var(--accent)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Video
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Existing files */}
+                  {files.length > 0 && (
+                    <FileList files={files} submissionId={submission.submission_id} />
+                  )}
+
+                  {/* Expand/collapse toggle for file upload */}
+                  {!isClosed && (
+                    <button
+                      onClick={() =>
+                        setExpandedId(isExpanded ? null : submission.submission_id)
+                      }
+                      style={{
+                        marginTop: '0.875rem',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.7rem',
+                        color: 'var(--ink)',
+                        opacity: 0.5,
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      {isExpanded ? 'Hide file upload' : 'Add files'}
+                    </button>
+                  )}
+
+                  {/* File upload zone — only visible when expanded */}
+                  {isExpanded && !isClosed && (
+                    <FileUploadZone submissionId={submission.submission_id} />
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

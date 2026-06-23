@@ -1,58 +1,46 @@
 "use client"
 
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import {
   useHackathon,
   useSubmissions,
   useLeaderboard,
   useSubmitScore,
+  useRubrics,
 } from '@/hooks/use-api'
 import { useAuth } from '@/lib/auth/auth-context'
-import { apiClient } from '@/lib/api/client'
 import { Gavel, Loader2, Trophy } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Rubric } from '@/lib/types'
 import type { SubmitScoreParams } from '@/lib/api/judging'
+import type { RubricCriterion } from '@/lib/api/hackathons-backend'
 
 export default function JudgingPage({
   params,
 }: {
   params: { hackathonId: string }
 }) {
-  const { token, user } = useAuth()
+  const { user } = useAuth()
 
   const { data: hackathon, isLoading: hackathonLoading } = useHackathon(params.hackathonId)
-
   const { data: submissionsData, isLoading: submissionsLoading } = useSubmissions({
     hackathon_id: params.hackathonId,
   })
-
+  const { data: rubricsData, isLoading: rubricsLoading } = useRubrics(params.hackathonId)
   const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(params.hackathonId)
-
-  // Rubrics via apiClient — no dedicated hook in use-api.ts yet
-  const { data: rubricsData, isLoading: rubricsLoading } = useQuery<Rubric[]>({
-    queryKey: ['dothack', 'rubrics', params.hackathonId],
-    queryFn: () =>
-      apiClient<Rubric[]>(`/hackathons/${params.hackathonId}/rubrics`, {
-        token: token ?? undefined,
-      }),
-    enabled: !!params.hackathonId,
-  })
 
   const submitScore = useSubmitScore()
 
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null)
   const [criterionScores, setCriterionScores] = useState<Record<string, number>>({})
-  const [feedback, setFeedback] = useState('')
+  const [comment, setComment] = useState('')
 
-  const isLoading = hackathonLoading || submissionsLoading || rubricsLoading || leaderboardLoading
+  const isLoading =
+    hackathonLoading || submissionsLoading || rubricsLoading || leaderboardLoading
 
   if (isLoading) {
     return (
@@ -73,19 +61,11 @@ export default function JudgingPage({
   }
 
   const submissions = submissionsData?.submissions ?? []
-  const rubrics = rubricsData ?? []
+  const rubrics = rubricsData?.rubrics ?? []
   const leaderboardEntries = leaderboard?.entries ?? []
 
-  // Parse criteria from first rubric if available
-  let rubricCriteria: Record<string, { weight?: number; max?: number }> = {}
-  const activeRubric = rubrics[0]
-  if (activeRubric) {
-    try {
-      rubricCriteria = JSON.parse(activeRubric.criteria_json)
-    } catch {
-      rubricCriteria = {}
-    }
-  }
+  // Prefer active rubric, fall back to first available
+  const activeRubric = rubrics.find((r) => r.is_active) ?? rubrics[0]
 
   const handleSubmitScore = async (submissionId: string) => {
     if (!user) {
@@ -93,23 +73,25 @@ export default function JudgingPage({
       return
     }
 
-    const activeRubricId = rubrics[0]?.rubric_id
-    if (!activeRubricId) {
+    if (!activeRubric) {
       toast.error('No rubric defined. Please create a rubric in Setup first.')
       return
     }
 
     try {
-      const totalScore = Object.values(criterionScores).reduce((sum, s) => sum + s, 0)
+      // Calculate total score from criterion scores
+      const totalScore = activeRubric.criteria.reduce((sum, criterion) => {
+        return sum + (criterionScores[criterion.name] ?? 0)
+      }, 0)
 
       const scoreParams: SubmitScoreParams = {
         submission_id: submissionId,
         hackathon_id: params.hackathonId,
-        rubric_id: activeRubricId,
-        judge_id: user.id ?? user.email ?? 'judge',
+        rubric_id: activeRubric.rubric_id,
+        judge_id: (user as any).id ?? (user as any).email ?? 'judge',
         criteria: criterionScores,
         score: totalScore,
-        comment: feedback || undefined,
+        comment: comment || undefined,
       }
 
       await submitScore.mutateAsync(scoreParams)
@@ -117,7 +99,7 @@ export default function JudgingPage({
       toast.success('Score submitted successfully')
       setSelectedSubmission(null)
       setCriterionScores({})
-      setFeedback('')
+      setComment('')
     } catch (error) {
       console.error('Failed to submit score:', error)
       toast.error('Failed to submit score', {
@@ -126,8 +108,15 @@ export default function JudgingPage({
     }
   }
 
-  const getScoreForSubmission = (submissionId: string) => {
-    return leaderboardEntries.find((e) => e.submission_id === submissionId)
+  const getLeaderboardEntry = (submissionId: string) =>
+    leaderboardEntries.find((e) => e.submission_id === submissionId)
+
+  const inputStyle = {
+    border: '2px solid var(--ink)',
+    borderRadius: 0,
+    background: 'var(--cream)',
+    color: 'var(--ink)',
+    fontFamily: 'JetBrains Mono, monospace',
   }
 
   return (
@@ -161,48 +150,84 @@ export default function JudgingPage({
         >
           <CardHeader style={{ borderBottom: '2px solid var(--ink)' }}>
             <CardTitle style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)' }}>
-              Judging Rubric
+              Active Rubric
+              {activeRubric && (
+                <span
+                  style={{
+                    marginLeft: '12px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '0.75rem',
+                    padding: '2px 8px',
+                    border: '2px solid var(--accent)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  {activeRubric.name}
+                </span>
+              )}
             </CardTitle>
             <CardDescription style={{ color: 'var(--ink)', opacity: 0.6 }}>
               Evaluation criteria for this hackathon
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="space-y-3">
-              {rubrics.map((rubric) => (
-                <div
-                  key={rubric.rubric_id}
-                  style={{
-                    padding: '12px',
-                    border: '1px solid var(--ink)',
-                    background: 'rgba(0,0,0,0.02)',
-                  }}
-                >
-                  <h4
+            {activeRubric ? (
+              <div className="space-y-2">
+                {activeRubric.criteria.map((criterion, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start justify-between"
                     style={{
-                      fontFamily: 'Archivo, sans-serif',
-                      fontWeight: 700,
-                      color: 'var(--ink)',
-                      marginBottom: '8px',
+                      padding: '10px 12px',
+                      border: '1px solid var(--ink)',
+                      background: 'rgba(0,0,0,0.02)',
                     }}
                   >
-                    {rubric.title}
-                  </h4>
-                  <pre
-                    style={{
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontSize: '0.75rem',
-                      color: 'var(--ink)',
-                      opacity: 0.8,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {rubric.criteria_json}
-                  </pre>
-                </div>
-              ))}
-            </div>
+                    <div>
+                      <span
+                        style={{
+                          fontFamily: 'Archivo, sans-serif',
+                          fontWeight: 700,
+                          color: 'var(--ink)',
+                          display: 'block',
+                          marginBottom: '2px',
+                        }}
+                      >
+                        {criterion.name}
+                      </span>
+                      {criterion.description && (
+                        <span
+                          style={{
+                            fontFamily: 'Inter, sans-serif',
+                            fontSize: '0.8rem',
+                            color: 'var(--ink)',
+                            opacity: 0.6,
+                          }}
+                        >
+                          {criterion.description}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.75rem',
+                        color: 'var(--ink)',
+                        opacity: 0.6,
+                        whiteSpace: 'nowrap',
+                        marginLeft: '12px',
+                      }}
+                    >
+                      max {criterion.max_score} · {(criterion.weight * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--ink)', opacity: 0.5, fontSize: '0.875rem' }}>
+                No active rubric
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -213,81 +238,92 @@ export default function JudgingPage({
           style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
         >
           <CardContent className="text-center py-12">
-            <p style={{ color: 'var(--ink)', opacity: 0.6 }}>
-              No submissions to judge yet
-            </p>
+            <p style={{ color: 'var(--ink)', opacity: 0.6 }}>No submissions to judge yet</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {submissions.map((submission) => {
-            const existingScore = getScoreForSubmission(submission.submission_id)
+            const existingEntry = getLeaderboardEntry(submission.submission_id)
             const isScoring = selectedSubmission === submission.submission_id
 
             return (
               <Card
                 key={submission.submission_id}
-                style={{ borderRadius: 0, border: '2px solid var(--ink)', background: 'var(--cream)' }}
+                style={{
+                  borderRadius: 0,
+                  border: '2px solid var(--ink)',
+                  background: 'var(--cream)',
+                }}
               >
                 <CardHeader style={{ borderBottom: '2px solid var(--ink)' }}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <CardTitle
                         className="flex items-center gap-2"
-                        style={{ fontFamily: 'Archivo, sans-serif', color: 'var(--ink)', fontSize: '1.1rem' }}
+                        style={{
+                          fontFamily: 'Archivo, sans-serif',
+                          color: 'var(--ink)',
+                          fontSize: '1.1rem',
+                        }}
                       >
                         <Gavel className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                         {submission.project_name}
                       </CardTitle>
                       <div className="flex gap-2 mt-2 flex-wrap items-center">
-                        <Badge
-                          variant="outline"
+                        <span
                           style={{
-                            borderRadius: 0,
-                            border: '2px solid var(--ink)',
                             fontFamily: 'JetBrains Mono, monospace',
                             fontSize: '0.7rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            border: '2px solid var(--ink)',
                             color: 'var(--ink)',
                           }}
                         >
                           {submission.team_name}
-                        </Badge>
+                        </span>
                         {submission.track && (
-                          <Badge
-                            variant="outline"
-                            style={{
-                              borderRadius: 0,
-                              border: '2px solid var(--accent)',
-                              fontFamily: 'JetBrains Mono, monospace',
-                              fontSize: '0.7rem',
-                              color: 'var(--accent)',
-                            }}
-                          >
-                            {submission.track}
-                          </Badge>
-                        )}
-                        {existingScore && (
                           <span
                             style={{
                               fontFamily: 'JetBrains Mono, monospace',
                               fontSize: '0.7rem',
-                              color: '#16a34a',
+                              padding: '2px 8px',
+                              border: '2px solid var(--accent)',
+                              color: 'var(--accent)',
+                            }}
+                          >
+                            {submission.track}
+                          </span>
+                        )}
+                        {existingEntry && (
+                          <span
+                            className="flex items-center gap-1"
+                            style={{
+                              fontFamily: 'JetBrains Mono, monospace',
+                              fontSize: '0.7rem',
                               fontWeight: 700,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
+                              color: '#16a34a',
                             }}
                           >
                             <Trophy className="h-3 w-3" />
-                            Rank #{existingScore.rank} — {existingScore.average_score.toFixed(1)} avg
+                            Rank #{existingEntry.rank} · avg {existingEntry.average_score.toFixed(1)}
                           </span>
                         )}
                       </div>
                     </div>
-                    {!isScoring && rubrics.length > 0 && (
+                    {!isScoring && activeRubric && (
                       <Button
                         size="sm"
-                        onClick={() => setSelectedSubmission(submission.submission_id)}
+                        onClick={() => {
+                          setSelectedSubmission(submission.submission_id)
+                          // Pre-fill zeros for each criterion
+                          const initial: Record<string, number> = {}
+                          activeRubric.criteria.forEach((c) => {
+                            initial[c.name] = 0
+                          })
+                          setCriterionScores(initial)
+                        }}
                         style={{
                           background: 'var(--ink)',
                           color: 'var(--cream)',
@@ -296,6 +332,7 @@ export default function JudgingPage({
                           fontFamily: 'Archivo, sans-serif',
                           fontWeight: 700,
                           fontSize: '0.8rem',
+                          flexShrink: 0,
                         }}
                       >
                         Score
@@ -316,7 +353,7 @@ export default function JudgingPage({
                     {submission.description}
                   </p>
 
-                  {isScoring && (
+                  {isScoring && activeRubric && (
                     <div
                       style={{
                         marginTop: '1.5rem',
@@ -336,8 +373,8 @@ export default function JudgingPage({
                       </h4>
 
                       <div className="space-y-4">
-                        {Object.keys(rubricCriteria).length === 0 ? (
-                          <div className="space-y-2">
+                        {activeRubric.criteria.map((criterion) => (
+                          <div key={criterion.name} className="space-y-1">
                             <Label
                               style={{
                                 fontFamily: 'Archivo, sans-serif',
@@ -345,69 +382,30 @@ export default function JudgingPage({
                                 color: 'var(--ink)',
                               }}
                             >
-                              Overall Score (0–100)
+                              {criterion.name}
+                              <span style={{ fontWeight: 400, opacity: 0.6 }}>
+                                {' '}
+                                (0–{criterion.max_score}, weight {(criterion.weight * 100).toFixed(0)}%)
+                              </span>
                             </Label>
                             <Input
                               type="number"
                               min="0"
-                              max="100"
-                              value={criterionScores['overall'] ?? ''}
+                              max={criterion.max_score}
+                              value={criterionScores[criterion.name] ?? 0}
                               onChange={(e) =>
-                                setCriterionScores({ ...criterionScores, overall: Number(e.target.value) })
+                                setCriterionScores({
+                                  ...criterionScores,
+                                  [criterion.name]: Number(e.target.value),
+                                })
                               }
-                              placeholder="0–100"
-                              style={{
-                                border: '2px solid var(--ink)',
-                                borderRadius: 0,
-                                background: 'var(--cream)',
-                                color: 'var(--ink)',
-                                fontFamily: 'JetBrains Mono, monospace',
-                              }}
+                              placeholder={`0–${criterion.max_score}`}
+                              style={inputStyle}
                             />
                           </div>
-                        ) : (
-                          Object.entries(rubricCriteria).map(([criterion, config]) => (
-                            <div key={criterion} className="space-y-2">
-                              <Label
-                                style={{
-                                  fontFamily: 'Archivo, sans-serif',
-                                  fontWeight: 700,
-                                  color: 'var(--ink)',
-                                }}
-                              >
-                                {criterion.charAt(0).toUpperCase() + criterion.slice(1)}
-                                {config.max && (
-                                  <span style={{ fontWeight: 400, opacity: 0.6 }}> (max: {config.max})</span>
-                                )}
-                                {config.weight && (
-                                  <span style={{ fontWeight: 400, opacity: 0.6 }}> — weight {config.weight}%</span>
-                                )}
-                              </Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max={config.max ?? 100}
-                                value={criterionScores[criterion] ?? ''}
-                                onChange={(e) =>
-                                  setCriterionScores({
-                                    ...criterionScores,
-                                    [criterion]: Number(e.target.value),
-                                  })
-                                }
-                                placeholder={`0–${config.max ?? 100}`}
-                                style={{
-                                  border: '2px solid var(--ink)',
-                                  borderRadius: 0,
-                                  background: 'var(--cream)',
-                                  color: 'var(--ink)',
-                                  fontFamily: 'JetBrains Mono, monospace',
-                                }}
-                              />
-                            </div>
-                          ))
-                        )}
+                        ))}
 
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           <Label
                             style={{
                               fontFamily: 'Archivo, sans-serif',
@@ -415,13 +413,13 @@ export default function JudgingPage({
                               color: 'var(--ink)',
                             }}
                           >
-                            Feedback{' '}
+                            Comment{' '}
                             <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span>
                           </Label>
                           <Textarea
                             placeholder="Provide constructive feedback..."
-                            value={feedback}
-                            onChange={(e) => setFeedback(e.target.value)}
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
                             rows={4}
                             style={{
                               border: '2px solid var(--ink)',
@@ -431,6 +429,27 @@ export default function JudgingPage({
                               fontFamily: 'Inter, sans-serif',
                             }}
                           />
+                        </div>
+
+                        <div
+                          style={{
+                            padding: '8px 12px',
+                            background: 'rgba(0,0,0,0.03)',
+                            border: '1px solid var(--ink)',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.8rem',
+                            color: 'var(--ink)',
+                          }}
+                        >
+                          Total score:{' '}
+                          <strong>
+                            {activeRubric.criteria.reduce(
+                              (sum, c) => sum + (criterionScores[c.name] ?? 0),
+                              0
+                            )}
+                          </strong>
+                          /{' '}
+                          {activeRubric.criteria.reduce((sum, c) => sum + c.max_score, 0)}
                         </div>
 
                         <div className="flex gap-2">
@@ -460,7 +479,7 @@ export default function JudgingPage({
                             onClick={() => {
                               setSelectedSubmission(null)
                               setCriterionScores({})
-                              setFeedback('')
+                              setComment('')
                             }}
                             disabled={submitScore.isPending}
                             style={{
