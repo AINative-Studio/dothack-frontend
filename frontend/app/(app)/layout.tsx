@@ -12,25 +12,25 @@ const NAV_SECTIONS = [
     items: [
       { href: '/hackathons', label: 'Dashboard' },
       { href: '/hackathons', label: 'Hackathons' },
-      { href: '/hackathons', label: 'Participants' },
-      { href: '/hackathons', label: 'Submissions' },
-      { href: '/hackathons', label: 'Judging', badge: 3 },
-      { href: '/hackathons', label: 'Leaderboard' },
-      { href: '/hackathons', label: 'Prizes' },
+      { href: '/participants', label: 'Participants' },
+      { href: '/submissions', label: 'Submissions' },
+      { href: '/judging', label: 'Judging', badge: 3 },
+      { href: '/leaderboard', label: 'Leaderboard' },
+      { href: '/prizes', label: 'Prizes' },
     ],
   },
   {
     label: 'INTELLIGENCE',
     items: [
-      { href: '/hackathons', label: 'AI Recommendations', indicator: true },
-      { href: '/hackathons', label: 'Semantic Search', indicator: true },
+      { href: '/recommendations', label: 'AI Recommendations', indicator: true },
+      { href: '/search', label: 'Semantic Search', indicator: true },
     ],
   },
   {
     label: 'CONFIGURE',
     items: [
       { href: '/api-settings', label: 'API Keys' },
-      { href: '/hackathons', label: 'Payments' },
+      { href: '/payments', label: 'Payments' },
       { href: '/featured', label: 'Featured' },
       { href: '/themes', label: 'Themes' },
     ],

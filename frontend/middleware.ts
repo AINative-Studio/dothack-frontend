@@ -46,6 +46,16 @@ const PUBLIC_ROUTES = [
  */
 const PROTECTED_ROUTES = [
   '/hackathons',
+  '/participants',
+  '/submissions',
+  '/judging',
+  '/leaderboard',
+  '/prizes',
+  '/search',
+  '/recommendations',
+  '/payments',
+  '/featured',
+  '/themes',
   '/profile',
   '/settings',
   '/api-settings',
