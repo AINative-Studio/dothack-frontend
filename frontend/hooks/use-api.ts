@@ -478,14 +478,15 @@ export function useAttendeeDashboard(): UseQueryResult<
 // ---------------------------------------------------------------------------
 
 export function useSearch(
-  params: SearchParams,
+  params?: SearchParams | string,
   options?: { enabled?: boolean }
 ): UseQueryResult<SearchResponse, Error> {
   const { token } = useAuth()
+  const resolvedParams: SearchParams | undefined = typeof params === 'string' ? { query: params } : params
   return useQuery({
-    queryKey: DotHackQueryKeys.search(params),
-    queryFn: () => search(params, token ?? undefined),
-    enabled: options?.enabled !== false && !!params.query,
+    queryKey: DotHackQueryKeys.search(resolvedParams || { query: '' }),
+    queryFn: () => search(resolvedParams!, token ?? undefined),
+    enabled: options?.enabled !== false && !!resolvedParams?.query,
   })
 }
 
