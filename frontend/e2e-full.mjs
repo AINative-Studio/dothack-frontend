@@ -41,7 +41,7 @@ if (await apiTab.count() > 0) {
 // Find the API key input
 const apiInput = page.locator('input[id="login-apikey"], input[placeholder*="API"], input[placeholder*="api"], input[type="text"][autocomplete="off"]');
 if (await apiInput.count() > 0) {
-  await apiInput.first().fill('kLPiP0bzgKJ0CnNYVt1wq3qxbs2QgDeF2XwyUnxBEOM');
+  await apiInput.first().fill('sk_nLI6DrYP9h7qrac9t876Wj4e3iV-zsk5YXUv0S-ttkM');
   await page.click('button[type="submit"]');
   await page.waitForTimeout(5000);
   log('API Key Login', page.url().includes('/hackathons') ? 'PASS' : 'FAIL', page.url());

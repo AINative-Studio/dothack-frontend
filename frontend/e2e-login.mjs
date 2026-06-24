@@ -24,7 +24,7 @@ await page.waitForTimeout(500);
 
 // Fill API key
 const input = page.locator('#login-apikey');
-await input.fill('kLPiP0bzgKJ0CnNYVt1wq3qxbs2QgDeF2XwyUnxBEOM');
+await input.fill('sk_nLI6DrYP9h7qrac9t876Wj4e3iV-zsk5YXUv0S-ttkM');
 await page.waitForTimeout(300);
 
 // Screenshot before click

@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth/auth-context'
 
+// Static nav - always visible
 const NAV_SECTIONS = [
   {
     label: 'OPERATE',
     items: [
       { href: '/hackathons', label: 'Dashboard' },
-      { href: '/hackathons', label: 'Hackathons', badge: null },
+      { href: '/hackathons', label: 'Hackathons' },
       { href: '/hackathons', label: 'Participants' },
       { href: '/hackathons', label: 'Submissions' },
       { href: '/hackathons', label: 'Judging', badge: 3 },
@@ -34,6 +35,19 @@ const NAV_SECTIONS = [
       { href: '/themes', label: 'Themes' },
     ],
   },
+]
+
+// Hackathon sub-nav - shown when viewing a specific hackathon
+const HACKATHON_SUB_NAV = [
+  { suffix: '', label: 'Overview' },
+  { suffix: '/setup', label: 'Setup' },
+  { suffix: '/participants', label: 'Participants' },
+  { suffix: '/teams', label: 'Teams' },
+  { suffix: '/submissions', label: 'Submissions' },
+  { suffix: '/judging', label: 'Judging' },
+  { suffix: '/leaderboard', label: 'Leaderboard' },
+  { suffix: '/prizes', label: 'Prizes' },
+  { suffix: '/projects', label: 'Projects' },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -73,7 +87,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
               {section.items.map((item) => {
-                const isActive = pathname === item.href && item.label === 'Dashboard'
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 return (
                   <Link
                     key={`${section.label}-${item.label}`}
@@ -85,24 +99,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         : 'text-ink hover:bg-cream-mid',
                     ].join(' ')}
                   >
-                    {/* Active left border */}
                     {isActive && (
-                      <span
-                        className="absolute left-0 top-0 h-full bg-accent"
-                        style={{ width: 4 }}
-                      />
+                      <span className="absolute left-0 top-0 h-full bg-accent" style={{ width: 4 }} />
                     )}
                     <span className={isActive ? 'pl-1' : ''}>{item.label}</span>
                     <span className="flex items-center gap-1.5">
-                      {'indicator' in item && item.indicator && (
-                        <span
-                          className="w-2 h-2 bg-accent shrink-0"
-                          aria-hidden="true"
-                        />
+                      {'indicator' in item && (item as any).indicator && (
+                        <span className="w-2 h-2 bg-accent shrink-0" />
                       )}
-                      {'badge' in item && item.badge ? (
+                      {'badge' in item && (item as any).badge ? (
                         <span className="bg-accent text-white font-mono text-[9px] px-1.5 py-0.5 leading-none">
-                          {item.badge}
+                          {(item as any).badge}
                         </span>
                       ) : null}
                     </span>
@@ -111,6 +118,42 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               })}
             </div>
           ))}
+
+          {/* Hackathon sub-navigation - shown when viewing a hackathon */}
+          {(() => {
+            const match = pathname.match(/\/hackathons\/([^/]+)/)
+            if (!match) return null
+            const hackathonId = match[1]
+            const basePath = `/hackathons/${hackathonId}`
+            return (
+              <div className="mb-5">
+                <div className="px-5 mb-2">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
+                    Hackathon
+                  </span>
+                </div>
+                {HACKATHON_SUB_NAV.map((item) => {
+                  const fullPath = `${basePath}${item.suffix}`
+                  const isActive = pathname === fullPath
+                  return (
+                    <Link
+                      key={item.suffix || 'overview'}
+                      href={fullPath}
+                      className={[
+                        'flex items-center px-5 py-2 text-[13px] font-medium transition-colors relative',
+                        isActive ? 'bg-[#fff3ef] text-ink' : 'text-ink hover:bg-cream-mid',
+                      ].join(' ')}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-0 h-full bg-accent" style={{ width: 4 }} />
+                      )}
+                      <span className={isActive ? 'pl-1' : ''}>{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </nav>
 
         {/* User profile */}
