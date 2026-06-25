@@ -23,7 +23,8 @@ export class ApiRequestError extends Error {
 
 export async function apiClient<T>(
   path: string,
-  options?: RequestInit & { token?: string }
+  options?: RequestInit & { token?: string },
+  _retryCount = 0
 ): Promise<T> {
   const { token, ...fetchOptions } = options || {}
 
@@ -37,6 +38,14 @@ export async function apiClient<T>(
   }
 
   const res = await fetch(`${API_URL}${path}`, { ...fetchOptions, headers })
+
+  // Auto-retry on 429 rate limit (up to 3 times with backoff)
+  if (res.status === 429 && _retryCount < 3) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') || '5', 10)
+    const delay = Math.min(retryAfter * 1000, 15000) * (_retryCount + 1)
+    await new Promise(r => setTimeout(r, delay))
+    return apiClient<T>(path, options, _retryCount + 1)
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: { message: 'Request failed' } }))
