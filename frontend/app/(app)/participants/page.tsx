@@ -113,8 +113,8 @@ function HackathonParticipantRows({
           key={`${hackathonId}-${p.participant_id}`}
           className="border-b border-ink/10 hover:bg-cream-mid transition-colors"
         >
-          <td className="px-5 py-3 font-medium text-[13px] text-ink">{p.name}</td>
-          <td className="px-5 py-3 font-mono text-[11px] text-muted">{p.handle}</td>
+          <td className="px-5 py-3 font-medium text-[13px] text-ink">{p.name || p.email || '—'}</td>
+          <td className="px-5 py-3 font-mono text-[11px] text-muted">{p.email || p.participant_id?.slice(0, 8) || '—'}</td>
           <td className="px-5 py-3">
             <RoleBadge role={p.role} />
           </td>

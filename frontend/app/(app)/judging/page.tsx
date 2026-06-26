@@ -3,8 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useAuth } from '@/lib/auth/auth-context'
-import { useJudgeAssignments } from '@/hooks/use-api'
-import type { JudgeAssignment } from '@/lib/api/judging'
+import { useHackathons } from '@/hooks/use-api'
+import Link from 'next/link'
 
 // ---------------------------------------------------------------------------
 // Skeleton card
@@ -84,14 +84,8 @@ function AssignmentCard({ assignment }: { assignment: JudgeAssignment }) {
 export default function JudgingPage() {
   useAuth()
 
-  const { data, isLoading, isError, error } = useJudgeAssignments()
-  const assignments = data?.assignments ?? []
-
-  const totalAssignments = assignments.length
-  const pendingCount = assignments.filter((a) => a.status === 'PENDING').length
-  const scoredCount = assignments.filter((a) => a.status === 'SCORED').length
-  const pendingAssignments = assignments.filter((a) => a.status === 'PENDING')
-  const scoredAssignments = assignments.filter((a) => a.status === 'SCORED')
+  const { data: hackathonsData, isLoading } = useHackathons({ limit: 200 })
+  const hackathons = hackathonsData?.hackathons ?? []
 
   return (
     <div className="p-8 max-w-[1360px]">
@@ -101,114 +95,53 @@ export default function JudgingPage() {
           Judging
         </h1>
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted mt-2">
-          Judge assignments and scoring queue
+          Select a hackathon to view judging assignments and scores
         </p>
       </div>
 
-      {/* Stats bar */}
-      <div className="border-2 border-ink mb-8">
-        <div className="grid grid-cols-3">
-          {[
-            { label: 'Total Assignments', value: isLoading ? '—' : totalAssignments, dark: false },
-            { label: 'Pending', value: isLoading ? '—' : pendingCount, dark: false },
-            { label: 'Scored', value: isLoading ? '—' : scoredCount, dark: true },
-          ].map((stat, i) => (
-            <div
-              key={stat.label}
-              className={[
-                'px-6 py-5',
-                i < 2 ? 'border-r-2 border-ink' : '',
-                stat.dark ? 'bg-ink' : '',
-              ].join(' ')}
-            >
-              <div
-                className={[
-                  'font-archivo font-black text-[36px] leading-none mb-1.5',
-                  stat.dark ? 'text-accent' : 'text-ink',
-                ].join(' ')}
-              >
-                {stat.value}
-              </div>
-              <div className="font-mono text-[9.5px] uppercase tracking-widest text-muted">
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Error state */}
-      {isError && (
-        <div className="border-2 border-accent bg-[#fff3ef] px-5 py-4 mb-5" role="alert">
-          <p className="font-mono text-[11px] text-accent uppercase tracking-widest">
-            Failed to load assignments: {(error as Error).message}
-          </p>
-        </div>
-      )}
-
       {/* Loading state */}
       {isLoading && (
-        <>
-          <div className="mb-4">
-            <h2 className="font-archivo font-black text-[14px] uppercase tracking-tight text-ink mb-4">
-              Pending Review
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-          </div>
-        </>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       )}
 
       {/* Empty state */}
-      {!isLoading && !isError && assignments.length === 0 && (
+      {!isLoading && hackathons.length === 0 && (
         <div className="border-2 border-dashed border-ink p-16 flex flex-col items-center gap-3">
           <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
-            No assignments found
+            No hackathons found
           </span>
           <span className="font-mono text-[10px] text-muted">
-            Judging assignments will appear here when configured
+            Create a hackathon to start configuring judging
           </span>
         </div>
       )}
 
-      {/* Pending section */}
-      {!isLoading && !isError && pendingAssignments.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="font-archivo font-black text-[14px] uppercase tracking-tight text-ink">
-              Pending Review
-            </h2>
-            <span className="bg-accent text-white font-mono text-[9px] px-1.5 py-0.5 leading-none">
-              {pendingCount}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pendingAssignments.map((a) => (
-              <AssignmentCard key={a.submission_id} assignment={a} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Scored section */}
-      {!isLoading && !isError && scoredAssignments.length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="font-archivo font-black text-[14px] uppercase tracking-tight text-ink">
-              Scored
-            </h2>
-            <span className="bg-ink text-cream font-mono text-[9px] px-1.5 py-0.5 leading-none">
-              {scoredCount}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {scoredAssignments.map((a) => (
-              <AssignmentCard key={a.submission_id} assignment={a} />
-            ))}
-          </div>
+      {/* Hackathon cards with judging links */}
+      {!isLoading && hackathons.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {hackathons.map((h) => (
+            <Link
+              key={h.hackathon_id}
+              href={`/hackathons/${h.hackathon_id}/judging`}
+              className="border-2 border-ink p-5 flex flex-col gap-3 hover:bg-cream-dark transition-colors"
+            >
+              <p className="font-archivo font-bold text-[14px] text-ink leading-snug">
+                {h.name}
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 bg-cream-dark text-ink border border-ink">
+                  {h.status || 'ACTIVE'}
+                </span>
+              </div>
+              <span className="self-start bg-ink text-cream font-archivo font-bold text-[11px] uppercase tracking-wide px-4 py-2 mt-1">
+                View Judging →
+              </span>
+            </Link>
+          ))}
         </div>
       )}
     </div>
