@@ -148,13 +148,13 @@ export async function getOrganizerDashboard(token: string): Promise<OrganizerDas
 }
 
 /**
- * GET /api/v1/dashboard/hackathons/:id/overview
+ * GET /api/v1/dashboard/hackathons/:id
  */
 export async function getHackathonOverview(
   hackathonId: string,
   token: string
 ): Promise<HackathonOverview> {
-  return apiClient<HackathonOverview>(`/dashboard/hackathons/${hackathonId}/overview`, { token })
+  return apiClient<HackathonOverview>(`/dashboard/hackathons/${hackathonId}`, { token })
 }
 
 /**
