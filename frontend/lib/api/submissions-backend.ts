@@ -82,12 +82,12 @@ export async function listSubmissions(
   if (params.limit !== undefined) qs.set('limit', String(params.limit))
   if (params.skip !== undefined) qs.set('skip', String(params.skip))
   const query = qs.toString() ? `?${qs.toString()}` : ''
-  return apiClient<ListSubmissionsResponse>(`/submissions${query}`, { token })
+  return apiClient<ListSubmissionsResponse>(`!/v1/submissions${query}`, { token })
 }
 
 /** GET /submissions/:id */
 export async function getSubmission(id: string, token?: string): Promise<Submission> {
-  return apiClient<Submission>(`/submissions/${id}`, { token })
+  return apiClient<Submission>(`!/v1/submissions/${id}`, { token })
 }
 
 /** GET /submissions/:id/similar */
@@ -95,5 +95,5 @@ export async function getSimilarSubmissions(
   id: string,
   token?: string
 ): Promise<SimilarSubmissionsResponse> {
-  return apiClient<SimilarSubmissionsResponse>(`/submissions/${id}/similar`, { token })
+  return apiClient<SimilarSubmissionsResponse>(`!/v1/submissions/${id}/similar`, { token })
 }

@@ -34,3 +34,6 @@ coverage/
 # Misc
 .cache/
 *.tsbuildinfo
+
+# Local Netlify folder
+.netlify

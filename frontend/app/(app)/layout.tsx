@@ -156,17 +156,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })()}
         </nav>
 
-        {/* User profile */}
-        <div className="border-t-2 border-ink px-5 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 bg-ink text-cream flex items-center justify-center font-archivo font-black text-[11px] shrink-0">
-            {userInitials}
+        {/* User profile + Logout */}
+        <div className="border-t-2 border-ink px-5 py-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 bg-ink text-cream flex items-center justify-center font-archivo font-black text-[11px] shrink-0">
+              {userInitials}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold text-ink truncate">{userName}</p>
+              <p className="font-mono text-[9px] uppercase tracking-widest text-muted">
+                Organizer
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[12px] font-semibold text-ink truncate">{userName}</p>
-            <p className="font-mono text-[9px] uppercase tracking-widest text-muted">
-              Organizer
-            </p>
-          </div>
+          <button
+            onClick={() => {
+              // Clear auth state
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('auth_token')
+                localStorage.removeItem('auth_user')
+                localStorage.removeItem('dothack_access_token')
+                localStorage.removeItem('dothack_refresh_token')
+                localStorage.removeItem('dothack_user')
+                document.cookie = 'auth_token=; path=/; max-age=0'
+              }
+              window.location.href = '/login'
+            }}
+            className="w-full font-mono text-[10px] uppercase tracking-widest text-muted hover:text-accent border border-[#ddd6c6] px-3 py-2 text-center transition-colors"
+          >
+            Sign Out
+          </button>
         </div>
       </aside>
 

@@ -534,7 +534,7 @@ export async function createSubmission(
   data: CreateSubmissionInput,
   token: string
 ): Promise<SubmissionV1> {
-  return apiClient<SubmissionV1>('/v1/submissions', {
+  return apiClient<SubmissionV1>('!/v1/submissions', {
     method: 'POST',
     body: JSON.stringify(data),
     token,
@@ -547,7 +547,7 @@ export async function updateSubmission(
   data: UpdateSubmissionInput,
   token: string
 ): Promise<SubmissionV1> {
-  return apiClient<SubmissionV1>(`/v1/submissions/${submissionId}`, {
+  return apiClient<SubmissionV1>(`!/v1/submissions/${submissionId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
     token,
@@ -559,7 +559,7 @@ export async function deleteSubmission(
   submissionId: string,
   token: string
 ): Promise<{ success: boolean; submission_id: string; message: string }> {
-  return apiClient(`/v1/submissions/${submissionId}`, {
+  return apiClient(`!/v1/submissions/${submissionId}`, {
     method: 'DELETE',
     token,
   })

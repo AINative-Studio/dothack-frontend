@@ -9,6 +9,10 @@
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
 
+// Base URL without the /api/v1 prefix — used for routes like /v1/submissions and /judging/*
+export const BACKEND_BASE =
+  (process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1').replace(/\/api\/v1$/, '')
+
 export class ApiRequestError extends Error {
   readonly status: number
   readonly body: unknown
@@ -37,7 +41,10 @@ export async function apiClient<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...fetchOptions, headers })
+  // Paths starting with '!' use BACKEND_BASE instead of API_URL (for non /api/v1 routes)
+  const isRawPath = path.startsWith('!')
+  const url = isRawPath ? `${BACKEND_BASE}${path.slice(1)}` : `${API_URL}${path}`
+  const res = await fetch(url, { ...fetchOptions, headers })
 
   // Auto-retry on 429 rate limit (up to 3 times with backoff)
   if (res.status === 429 && _retryCount < 3) {
