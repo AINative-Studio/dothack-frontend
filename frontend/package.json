@@ -12,7 +12,8 @@
     "verify-zerodb": "tsx scripts/verify-zerodb.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "postinstall": "node -e \"const f='node_modules/next/dist/telemetry/storage.js';const c=require('fs').readFileSync(f,'utf8');if(!c.includes('Telemetry:')){require('fs').appendFileSync(f,'\\nmodule.exports.Telemetry=module.exports.TelemetryShim||module.exports.Telemetry;\\n')}\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

@@ -1,6 +1,9 @@
 [build]
-command = "npx next build"
+command = "node -e \"const f='node_modules/next/dist/telemetry/storage.js';require('fs').appendFileSync(f,'\\nmodule.exports.Telemetry=module.exports.TelemetryShim||module.exports.Telemetry;\\n')\" && npm run build"
 publish = ".next"
+
+[build.environment]
+NEXT_TELEMETRY_DISABLED = "1"
 
 [[plugins]]
 package = "@netlify/plugin-nextjs"
