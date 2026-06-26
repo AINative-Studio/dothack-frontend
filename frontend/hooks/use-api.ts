@@ -232,6 +232,7 @@ export function useHackathons(
   return useQuery({
     queryKey: DotHackQueryKeys.hackathons.all(params),
     queryFn: () => listHackathons(params, token ?? undefined),
+    enabled: !!token,
   })
 }
 
@@ -369,6 +370,7 @@ export function useSubmissions(
   return useQuery({
     queryKey: DotHackQueryKeys.submissions.all(params),
     queryFn: () => listSubmissions(params, token ?? undefined),
+    enabled: !!token,
   })
 }
 
@@ -874,6 +876,7 @@ export function useFeaturedHackathons(): UseQueryResult<any, Error> {
   return useQuery({
     queryKey: DotHackQueryKeys.featured.all(),
     queryFn: () => listFeaturedHackathons(token ?? undefined),
+    enabled: !!token,
   })
 }
 
@@ -932,6 +935,7 @@ export function useThemes(): UseQueryResult<any, Error> {
   return useQuery({
     queryKey: DotHackQueryKeys.themes.all(),
     queryFn: () => listThemes(token ?? undefined),
+    enabled: !!token,
   })
 }
 
