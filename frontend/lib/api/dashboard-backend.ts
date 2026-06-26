@@ -2,14 +2,11 @@
  * DotHack Dashboard API
  *
  * Wraps the three dashboard endpoints from the DotHack backend:
- *   GET /dashboard/organizer              — organizer-facing summary
- *   GET /dashboard/hackathons/:id/overview — per-hackathon overview
- *   GET /api/v1/me/dashboard              — attendee/builder-facing home
+ *   GET /api/v1/dashboard/organizer              — organizer-facing summary
+ *   GET /api/v1/dashboard/hackathons/:id/overview — per-hackathon overview
+ *   GET /api/v1/me/dashboard                     — attendee/builder-facing home
  *
- * Note: The first two endpoints are served under /dashboard/* (no /api/v1
- * prefix) as documented in dothack-api.js.  The attendee endpoint uses the
- * standard /api/v1 prefix already included in NEXT_PUBLIC_API_URL, but the
- * path comes from /me/dashboard, so we call /me/dashboard directly.
+ * All endpoints use the standard /api/v1 prefix via apiClient.
  */
 
 import { apiClient } from './client'
@@ -140,70 +137,28 @@ export interface AttendeeDashboard {
 }
 
 // ---------------------------------------------------------------------------
-// The dashboard endpoints live outside /api/v1, so we must call them on the
-// base origin.  We derive the origin from NEXT_PUBLIC_API_URL.
-// ---------------------------------------------------------------------------
-
-function dashboardUrl(path: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
-  // Strip the /api/v1 suffix to get the root origin
-  const origin = base.replace(/\/api\/v\d+$/, '')
-  return `${origin}${path}`
-}
-
-// ---------------------------------------------------------------------------
-// API functions
+// API functions — all use apiClient which prepends /api/v1
 // ---------------------------------------------------------------------------
 
 /**
- * GET /dashboard/organizer
- *
- * Returns a summary of all hackathons managed by the authenticated organizer.
+ * GET /api/v1/dashboard/organizer
  */
 export async function getOrganizerDashboard(token: string): Promise<OrganizerDashboard> {
-  const res = await fetch(dashboardUrl('/dashboard/organizer'), {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.message || `Request failed: ${res.status}`)
-  }
-  return res.json()
+  return apiClient<OrganizerDashboard>('/dashboard/organizer', { token })
 }
 
 /**
- * GET /dashboard/hackathons/:id/overview
- *
- * Returns detailed stats and activity for a specific hackathon.
+ * GET /api/v1/dashboard/hackathons/:id/overview
  */
 export async function getHackathonOverview(
   hackathonId: string,
   token: string
 ): Promise<HackathonOverview> {
-  const res = await fetch(dashboardUrl(`/dashboard/hackathons/${hackathonId}/overview`), {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.message || `Request failed: ${res.status}`)
-  }
-  return res.json()
+  return apiClient<HackathonOverview>(`/dashboard/hackathons/${hackathonId}/overview`, { token })
 }
 
 /**
- * GET /me/dashboard
- *
- * Returns the signed-in builder's personal dashboard (registrations, team,
- * current submission, credentials, and recommendations).
+ * GET /api/v1/me/dashboard
  */
 export async function getAttendeeDashboard(token: string): Promise<AttendeeDashboard> {
   return apiClient<AttendeeDashboard>('/me/dashboard', { token })
