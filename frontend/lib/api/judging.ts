@@ -74,7 +74,7 @@ export interface LeaderboardResponse {
 export async function getJudgeAssignments(
   token: string
 ): Promise<JudgeAssignmentsResponse> {
-  return apiClient<JudgeAssignmentsResponse>('/judging/assignments', { token })
+  return apiClient<JudgeAssignmentsResponse>('!/judging/assignments', { token })
 }
 
 /**
@@ -93,7 +93,7 @@ export async function submitScore(
     rubric_id: params.rubric_id,
   })
 
-  return apiClient<ScoreResponse>(`/judging/scores?${qs.toString()}`, {
+  return apiClient<ScoreResponse>(`!/judging/scores?${qs.toString()}`, {
     method: 'POST',
     body: JSON.stringify({
       judge_id: params.judge_id,
@@ -110,7 +110,7 @@ export async function getLeaderboard(
   hackathonId: string,
   token: string
 ): Promise<LeaderboardResponse> {
-  return apiClient<LeaderboardResponse>(`/judging/hackathons/${hackathonId}/results`, {
+  return apiClient<LeaderboardResponse>(`!/judging/hackathons/${hackathonId}/results`, {
     token,
   })
 }

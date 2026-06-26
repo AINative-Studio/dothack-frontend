@@ -433,12 +433,12 @@ export async function listTeams(
   if (params.status) qs.set('status', params.status)
   if (params.skip !== undefined) qs.set('skip', String(params.skip))
   if (params.limit !== undefined) qs.set('limit', String(params.limit))
-  return apiClient<TeamListResponse>(`/teams?${qs.toString()}`, { token })
+  return apiClient<TeamListResponse>(`!/teams?${qs.toString()}`, { token })
 }
 
 /** GET /teams/:teamId */
 export async function getTeam(teamId: string, token?: string): Promise<TeamDetail> {
-  return apiClient<TeamDetail>(`/teams/${teamId}`, { token })
+  return apiClient<TeamDetail>(`!/teams/${teamId}`, { token })
 }
 
 /** POST /teams */
@@ -446,7 +446,7 @@ export async function createTeam(
   data: CreateTeamInput,
   token: string
 ): Promise<Team> {
-  return apiClient<Team>('/teams', {
+  return apiClient<Team>('!/teams', {
     method: 'POST',
     body: JSON.stringify(data),
     token,
@@ -459,7 +459,7 @@ export async function updateTeam(
   data: UpdateTeamInput,
   token: string
 ): Promise<Team> {
-  return apiClient<Team>(`/teams/${teamId}`, {
+  return apiClient<Team>(`!/teams/${teamId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
     token,
@@ -471,7 +471,7 @@ export async function deleteTeam(
   teamId: string,
   token: string
 ): Promise<{ success: boolean; team_id: string; message: string }> {
-  return apiClient(`/teams/${teamId}`, {
+  return apiClient(`!/teams/${teamId}`, {
     method: 'DELETE',
     token,
   })
@@ -607,7 +607,7 @@ export async function listProjects(
   hackathonId: string,
   token?: string
 ): Promise<ProjectListResponse> {
-  return apiClient<ProjectListResponse>(`/v1/hackathons/${hackathonId}/projects`, { token })
+  return apiClient<ProjectListResponse>(`!/v1/hackathons/${hackathonId}/projects`, { token })
 }
 
 /** POST /v1/hackathons/:id/projects */
@@ -616,7 +616,7 @@ export async function createProject(
   data: CreateProjectInput,
   token: string
 ): Promise<Project> {
-  return apiClient<Project>(`/v1/hackathons/${hackathonId}/projects`, {
+  return apiClient<Project>(`!/v1/hackathons/${hackathonId}/projects`, {
     method: 'POST',
     body: JSON.stringify(data),
     token,
@@ -718,7 +718,7 @@ export async function exportHackathonData(
   token: string
 ): Promise<ExportResponse> {
   return apiClient<ExportResponse>(
-    `/hackathons/${hackathonId}/export?format=${format}`,
+    `!/hackathons/${hackathonId}/export?format=${format}`,
     { token }
   )
 }
@@ -813,11 +813,11 @@ export async function uploadSubmissionFile(
   file: File,
   authToken?: string
 ) {
-  const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
+  const BASE_URL =
+    (process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1').replace(/\/api\/v\d+$/, '')
   const formData = new FormData()
   formData.append('file', file)
-  const res = await fetch(`${API_URL}/files/submissions/${submissionId}/files`, {
+  const res = await fetch(`${BASE_URL}/files/submissions/${submissionId}/files`, {
     method: 'POST',
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
     body: formData,
@@ -828,9 +828,9 @@ export async function uploadSubmissionFile(
 
 /** GET /files/:fileId/download */
 export async function downloadFile(fileId: string, authToken?: string) {
-  const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1'
-  const res = await fetch(`${API_URL}/files/${fileId}/download`, {
+  const BASE_URL =
+    (process.env.NEXT_PUBLIC_API_URL || 'https://dothack.ainative.studio/api/v1').replace(/\/api\/v\d+$/, '')
+  const res = await fetch(`${BASE_URL}/files/${fileId}/download`, {
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
   })
   if (!res.ok) throw new Error('Download failed')
@@ -839,5 +839,5 @@ export async function downloadFile(fileId: string, authToken?: string) {
 
 /** DELETE /files/:fileId */
 export async function deleteFile(fileId: string, authToken?: string) {
-  return apiClient<any>(`/files/${fileId}`, { method: 'DELETE', token: authToken })
+  return apiClient<any>(`!/files/${fileId}`, { method: 'DELETE', token: authToken })
 }
