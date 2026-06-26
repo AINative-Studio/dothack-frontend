@@ -116,7 +116,7 @@ export default function APISettingsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <code className="text-xs bg-slate-100 px-2 py-1 rounded">api.dothack.io/v1</code>
+              <code className="text-xs bg-slate-100 px-2 py-1 rounded">dothack.ainative.studio/api/v1</code>
             </CardContent>
           </Card>
         </div>
