@@ -37,7 +37,7 @@ export default function ProjectsPage({
   // createProject and updateProject don't have hooks in use-api.ts, use apiClient directly
   const createProject = useMutation({
     mutationFn: (data: CreateProjectInput) =>
-      apiClient<Project>(`/v1/hackathons/${params.hackathonId}/projects`, {
+      apiClient<Project>(`!/v1/hackathons/${params.hackathonId}/projects`, {
         method: 'POST',
         body: JSON.stringify(data),
         token: token!,
@@ -51,7 +51,7 @@ export default function ProjectsPage({
 
   const updateProject = useMutation({
     mutationFn: ({ projectId, status }: { projectId: string; status: ProjectStatus }) =>
-      apiClient<Project>(`/v1/projects/${projectId}`, {
+      apiClient<Project>(`!/v1/hackathons/${params.hackathonId}/projects/${projectId}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
         token: token!,

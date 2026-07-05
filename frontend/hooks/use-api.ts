@@ -241,7 +241,7 @@ export function useHackathon(id: string): UseQueryResult<Hackathon, Error> {
   return useQuery({
     queryKey: DotHackQueryKeys.hackathons.detail(id),
     queryFn: () => getHackathon(id, token ?? undefined),
-    enabled: !!id,
+    enabled: !!id && !!token,
   })
 }
 
@@ -306,7 +306,7 @@ export function useParticipants(
   return useQuery({
     queryKey: DotHackQueryKeys.participants.byHackathon(hackathonId, role),
     queryFn: () => listParticipants(hackathonId, role, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -338,7 +338,7 @@ export function usePrizes(
   return useQuery({
     queryKey: DotHackQueryKeys.prizes.byHackathon(hackathonId),
     queryFn: () => listPrizes(hackathonId, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -379,7 +379,7 @@ export function useSubmission(id: string): UseQueryResult<Submission, Error> {
   return useQuery({
     queryKey: DotHackQueryKeys.submissions.detail(id),
     queryFn: () => getSubmission(id, token ?? undefined),
-    enabled: !!id,
+    enabled: !!id && !!token,
   })
 }
 
@@ -390,7 +390,7 @@ export function useSimilarSubmissions(
   return useQuery({
     queryKey: DotHackQueryKeys.submissions.similar(id),
     queryFn: () => getSimilarSubmissions(id, token ?? undefined),
-    enabled: !!id,
+    enabled: !!id && !!token,
   })
 }
 
@@ -503,7 +503,7 @@ export function useTracks(
   return useQuery({
     queryKey: DotHackQueryKeys.tracks.byHackathon(hackathonId),
     queryFn: () => listTracks(hackathonId, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -515,7 +515,7 @@ export function useTrack(
   return useQuery({
     queryKey: DotHackQueryKeys.tracks.detail(hackathonId, trackId),
     queryFn: () => getTrack(hackathonId, trackId, token ?? undefined),
-    enabled: !!hackathonId && !!trackId,
+    enabled: !!hackathonId && !!trackId && !!token,
   })
 }
 
@@ -590,7 +590,7 @@ export function useRubrics(
   return useQuery({
     queryKey: DotHackQueryKeys.rubrics.byHackathon(hackathonId),
     queryFn: () => listRubrics(hackathonId, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -601,7 +601,7 @@ export function useActiveRubric(
   return useQuery({
     queryKey: DotHackQueryKeys.rubrics.active(hackathonId),
     queryFn: () => getActiveRubric(hackathonId, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -661,7 +661,7 @@ export function useTeams(
     queryKey: DotHackQueryKeys.teams.byHackathon(hackathonId, status),
     queryFn: () =>
       listTeams({ hackathon_id: hackathonId, status }, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -670,7 +670,7 @@ export function useTeam(teamId: string): UseQueryResult<TeamDetail, Error> {
   return useQuery({
     queryKey: DotHackQueryKeys.teams.detail(teamId),
     queryFn: () => getTeam(teamId, token ?? undefined),
-    enabled: !!teamId,
+    enabled: !!teamId && !!token,
   })
 }
 
@@ -797,7 +797,7 @@ export function useProjects(
   return useQuery({
     queryKey: DotHackQueryKeys.projects.byHackathon(hackathonId),
     queryFn: () => listProjects(hackathonId, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -812,7 +812,7 @@ export function useInvitations(
   return useQuery({
     queryKey: DotHackQueryKeys.invitations.byHackathon(hackathonId),
     queryFn: () => listInvitations(hackathonId, token ?? undefined),
-    enabled: !!hackathonId,
+    enabled: !!hackathonId && !!token,
   })
 }
 
@@ -994,7 +994,7 @@ export function useInvitationByToken(token: string): UseQueryResult<any, Error> 
   return useQuery({
     queryKey: ['dothack', 'invitations', 'token', token] as const,
     queryFn: () => getInvitationByToken(token, authToken ?? undefined),
-    enabled: !!token,
+    enabled: !!token && !!authToken,
   })
 }
 

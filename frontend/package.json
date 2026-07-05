@@ -83,6 +83,7 @@
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
     "@netlify/plugin-nextjs": "^5.15.12",
+    "@playwright/test": "^1.61.0",
     "@swc/jest": "^0.2.39",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
