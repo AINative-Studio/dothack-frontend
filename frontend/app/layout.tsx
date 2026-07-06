@@ -11,20 +11,19 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'DotHack - Run hackathons end-to-end',
   description: 'Complete hackathon management platform for participants, teams, projects, submissions, judging, and leaderboards',
+  metadataBase: new URL('https://hack.ainative.studio'),
   openGraph: {
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
+    title: 'DotHack - Run hackathons end-to-end',
+    description: 'Complete hackathon management platform for teams, projects, submissions, judging, and leaderboards',
+    siteName: 'DotHack',
+    type: 'website',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'DotHack - Run hackathons end-to-end' }],
   },
   twitter: {
     card: 'summary_large_image',
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
+    title: 'DotHack - Run hackathons end-to-end',
+    description: 'Complete hackathon management platform for teams, projects, submissions, judging, and leaderboards',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'DotHack - Run hackathons end-to-end' }],
   },
 };
 
