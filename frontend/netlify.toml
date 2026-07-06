@@ -1,5 +1,5 @@
 [build]
-command = "node -e \"const fs=require('fs'),f='node_modules/next/dist/telemetry/storage.js';let c=fs.readFileSync(f,'utf8');if(c.includes('get: function() {')&&c.includes('return Telemetry')){c=c.replace(/Object\\.defineProperty\\(exports,\\s*\\\\\"Telemetry\\\\\",\\s*\\{[^}]+\\}\\)/,'Object.defineProperty(exports,\\\"Telemetry\\\",{enumerable:true,value:class Telemetry{constructor(){}record(){return Promise.resolve()}get isEnabled(){return false}async getProjectId(){return \\\"\\\"}}})');fs.writeFileSync(f,c);console.log('patched telemetry')}\" && npm run build"
+command = "npm run build"
 publish = ".next"
 
 [build.environment]
