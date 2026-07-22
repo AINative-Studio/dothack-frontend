@@ -29,6 +29,7 @@ const NAV_SECTIONS = [
   {
     label: 'CONFIGURE',
     items: [
+      { href: '/integrations', label: 'Integrations' },
       { href: '/api-settings', label: 'API Keys' },
       { href: '/payments', label: 'Payments' },
       { href: '/featured', label: 'Featured' },

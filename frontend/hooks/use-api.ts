@@ -142,6 +142,44 @@ import {
   type SearchResponse,
 } from '@/lib/api/search-backend'
 
+import {
+  connectLuma,
+  getLumaStatus,
+  disconnectLuma,
+  updateSyncOptions,
+  listLumaEvents,
+  importLumaEvent,
+  syncLumaGuests,
+  listLumaContacts,
+  type LumaStatus,
+  type SyncOptions,
+  type LumaConnectResponse,
+  type LumaEventsListResponse,
+  type ImportEventResponse,
+  type SyncGuestsResponse,
+  type LumaContactsListResponse,
+} from '@/lib/api/integrations'
+
+import {
+  connectZeroPipeline,
+  getZeroPipelineStatus,
+  disconnectZeroPipeline,
+  updateZeroPipelineSyncOptions,
+  listZeroPipelinePipelines,
+  listZeroPipelineDeals,
+  listZeroPipelineCustomers,
+  importZeroPipelineCustomers,
+  getZeroPipelineDashboard,
+  type ZeroPipelineStatus,
+  type ZeroPipelineSyncOptions,
+  type ZeroPipelineConnectResponse,
+  type PipelinesListResponse as ZPPipelinesListResponse,
+  type DealsListResponse as ZPDealsListResponse,
+  type CustomersListResponse as ZPCustomersListResponse,
+  type ImportCustomersResponse as ZPImportCustomersResponse,
+  type DashboardSummary as ZPDashboardSummary,
+} from '@/lib/api/zeropipeline'
+
 // ---------------------------------------------------------------------------
 // Query key factory
 // ---------------------------------------------------------------------------
@@ -218,6 +256,16 @@ export const DotHackQueryKeys = {
   themes: {
     all: () => ['dothack', 'themes'] as const,
     detail: (id: string) => ['dothack', 'themes', id] as const,
+  },
+  integrations: {
+    lumaStatus: () => ['dothack', 'integrations', 'luma', 'status'] as const,
+    lumaEvents: () => ['dothack', 'integrations', 'luma', 'events'] as const,
+    lumaContacts: () => ['dothack', 'integrations', 'luma', 'contacts'] as const,
+    zpStatus: () => ['dothack', 'integrations', 'zeropipeline', 'status'] as const,
+    zpPipelines: () => ['dothack', 'integrations', 'zeropipeline', 'pipelines'] as const,
+    zpDeals: (pipelineId?: string) => ['dothack', 'integrations', 'zeropipeline', 'deals', pipelineId] as const,
+    zpCustomers: () => ['dothack', 'integrations', 'zeropipeline', 'customers'] as const,
+    zpDashboard: () => ['dothack', 'integrations', 'zeropipeline', 'dashboard'] as const,
   },
 }
 
@@ -1064,10 +1112,187 @@ export function useDeleteFile(): UseMutationResult<any, Error, string> {
 }
 
 // ---------------------------------------------------------------------------
+// Luma Integration hooks
+// ---------------------------------------------------------------------------
+
+export function useLumaStatus(): UseQueryResult<LumaStatus, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.lumaStatus(),
+    queryFn: () => getLumaStatus(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useConnectLuma(): UseMutationResult<LumaConnectResponse, Error, string> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (apiKey: string) => connectLuma(apiKey, token ?? undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.lumaStatus() }),
+  })
+}
+
+export function useDisconnectLuma(): UseMutationResult<{ success: boolean; message: string }, Error, void> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => disconnectLuma(token ?? undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.lumaStatus() }),
+  })
+}
+
+export function useUpdateSyncOptions(): UseMutationResult<LumaStatus, Error, SyncOptions> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (options: SyncOptions) => updateSyncOptions(options, token ?? undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.lumaStatus() }),
+  })
+}
+
+export function useLumaEvents(): UseQueryResult<LumaEventsListResponse, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.lumaEvents(),
+    queryFn: () => listLumaEvents(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useImportLumaEvent(): UseMutationResult<ImportEventResponse, Error, string> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (lumaEventId: string) => importLumaEvent(lumaEventId, token ?? undefined),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DotHackQueryKeys.hackathons.all() })
+      qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.lumaEvents() })
+    },
+  })
+}
+
+export function useSyncLumaGuests(): UseMutationResult<
+  SyncGuestsResponse,
+  Error,
+  { lumaEventId: string; hackathonId: string }
+> {
+  const { token } = useAuth()
+  return useMutation({
+    mutationFn: (params: { lumaEventId: string; hackathonId: string }) =>
+      syncLumaGuests(params.lumaEventId, params.hackathonId, token ?? undefined),
+  })
+}
+
+export function useLumaContacts(): UseQueryResult<LumaContactsListResponse, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.lumaContacts(),
+    queryFn: () => listLumaContacts(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// ZeroPipeline Integration hooks
+// ---------------------------------------------------------------------------
+
+export function useZeroPipelineStatus(): UseQueryResult<ZeroPipelineStatus, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.zpStatus(),
+    queryFn: () => getZeroPipelineStatus(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useConnectZeroPipeline(): UseMutationResult<ZeroPipelineConnectResponse, Error, string> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (apiKey: string) => connectZeroPipeline(apiKey, token ?? undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.zpStatus() }),
+  })
+}
+
+export function useDisconnectZeroPipeline(): UseMutationResult<{ success: boolean; message: string }, Error, void> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => disconnectZeroPipeline(token ?? undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.zpStatus() }),
+  })
+}
+
+export function useUpdateZeroPipelineSyncOptions(): UseMutationResult<ZeroPipelineStatus, Error, ZeroPipelineSyncOptions> {
+  const { token } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (options: ZeroPipelineSyncOptions) => updateZeroPipelineSyncOptions(options, token ?? undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DotHackQueryKeys.integrations.zpStatus() }),
+  })
+}
+
+export function useZeroPipelinePipelines(): UseQueryResult<ZPPipelinesListResponse, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.zpPipelines(),
+    queryFn: () => listZeroPipelinePipelines(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useZeroPipelineDeals(pipelineId?: string): UseQueryResult<ZPDealsListResponse, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.zpDeals(pipelineId),
+    queryFn: () => listZeroPipelineDeals(pipelineId, token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useZeroPipelineCustomers(): UseQueryResult<ZPCustomersListResponse, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.zpCustomers(),
+    queryFn: () => listZeroPipelineCustomers(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+export function useImportZeroPipelineCustomers(): UseMutationResult<
+  ZPImportCustomersResponse,
+  Error,
+  { hackathonId: string; pipelineId?: string }
+> {
+  const { token } = useAuth()
+  return useMutation({
+    mutationFn: (params: { hackathonId: string; pipelineId?: string }) =>
+      importZeroPipelineCustomers(params.hackathonId, params.pipelineId, token ?? undefined),
+  })
+}
+
+export function useZeroPipelineDashboard(): UseQueryResult<ZPDashboardSummary, Error> {
+  const { token } = useAuth()
+  return useQuery({
+    queryKey: DotHackQueryKeys.integrations.zpDashboard(),
+    queryFn: () => getZeroPipelineDashboard(token ?? undefined),
+    enabled: !!token,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Re-export types for consumers
 // ---------------------------------------------------------------------------
 
 export type {
+  LumaStatus,
+  SyncOptions,
+  LumaConnectResponse,
+  LumaEventsListResponse,
+  ImportEventResponse,
+  SyncGuestsResponse,
+  LumaContactsListResponse,
   Track,
   TrackListResponse,
   CreateTrackInput,
@@ -1095,4 +1320,12 @@ export type {
   CreateInvitationInput,
   HackathonStatsResponse,
   ExportResponse,
+  ZeroPipelineStatus,
+  ZeroPipelineSyncOptions,
+  ZeroPipelineConnectResponse,
+  ZPPipelinesListResponse,
+  ZPDealsListResponse,
+  ZPCustomersListResponse,
+  ZPImportCustomersResponse,
+  ZPDashboardSummary,
 }

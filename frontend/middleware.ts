@@ -59,6 +59,7 @@ const PROTECTED_ROUTES = [
   '/profile',
   '/settings',
   '/api-settings',
+  '/integrations',
 ]
 
 // ---------------------------------------------------------------------------
